@@ -1,0 +1,9 @@
+classpath:C:\Users\ADMIN\.m2\repository\jakarta\servlet\jakarta.servlet-api\6.0.0\jakarta.servlet-api-6.0.0.jar	347613:1790648426646
+classpath:C:\Users\ADMIN\.m2\repository\jakarta\servlet\jsp\jstl\jakarta.servlet.jsp.jstl-api\3.0.0\jakarta.servlet.jsp.jstl-api-3.0.0.jar	46041:1790648426807
+classpath:C:\Users\ADMIN\.m2\repository\jakarta\el\jakarta.el-api\5.0.0\jakarta.el-api-5.0.0.jar	87908:1790744837536
+classpath:C:\Users\ADMIN\.m2\repository\org\glassfish\web\jakarta.servlet.jsp.jstl\3.0.1\jakarta.servlet.jsp.jstl-3.0.1.jar	3711043:1790744838161
+classpath:C:\Users\ADMIN\.m2\repository\com\microsoft\sqlserver\mssql-jdbc\12.8.1.jre11\mssql-jdbc-12.8.1.jre11.jar	1476685:1790861475541
+classpath:C:\Users\ADMIN\.m2\repository\org\mindrot\jbcrypt\0.4\jbcrypt-0.4.jar	17429:1790861475600
+classpath:C:\Users\ADMIN\.m2\repository\com\google\zxing\core\3.5.3\core-3.5.3.jar	607650:1790477319223
+classpath:C:\Users\ADMIN\.m2\repository\com\google\zxing\javase\3.5.3\javase-3.5.3.jar	38225:1790477319303
+classpath:C:\Users\ADMIN\.m2\repository\com\beust\jcommander\1.82\jcommander-1.82.jar	88407:1790477319427
