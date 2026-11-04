@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 public class ReservationService {
     private static final int RESERVATION_HOURS = 2;
     private static final int MAX_MERGED_TABLES = 8;
-    private static final int MAX_SUGGESTIONS = 5;
+    private static final int MAX_SUGGESTIONS = 8;
     private static final int MAX_SEARCH_STATES_PER_AREA = 25000;
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
     private static final Comparator<TableCandidate> CANDIDATE_COMPARATOR = Comparator
@@ -308,6 +308,9 @@ public class ReservationService {
     private void validateCustomer(String customerName, String phoneNumber) {
         if (customerName == null || customerName.isBlank()) {
             throw new IllegalArgumentException("Tên khách không được để trống");
+        }
+        if (!customerName.trim().matches("[\\p{L} ]+")) {
+        throw new IllegalArgumentException("Tên khách hàng chỉ được chứa chữ cái và khoảng trắng");
         }
         if (phoneNumber == null || phoneNumber.isBlank()) {
             throw new IllegalArgumentException("Số điện thoại không được để trống");
