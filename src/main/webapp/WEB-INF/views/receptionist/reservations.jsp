@@ -239,7 +239,7 @@
                                 </div>
 
                                 <button class="btn btn-primary" type="submit">
-                                    Xác nhận đặt bàn
+                                    Ghi nhận đặt bàn
                                 </button>
 
                             </form>
