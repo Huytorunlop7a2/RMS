@@ -1367,6 +1367,97 @@ SELECT
 FROM dbo.reservation_change_history;
 GO
 
+
+GO
+IF OBJECT_ID(
+    'dbo.reservation_change_history',
+    'U'
+) IS NULL
+BEGIN
+    CREATE TABLE dbo.reservation_change_history
+    (
+        history_id BIGINT
+            IDENTITY(1,1)
+            NOT NULL
+            PRIMARY KEY,
+
+        reservation_id BIGINT
+            NOT NULL,
+
+        changed_by_staff_id BIGINT
+            NOT NULL,
+
+        changed_at DATETIME2
+            NOT NULL
+            DEFAULT SYSDATETIME(),
+
+        reason NVARCHAR(500)
+            NULL,
+
+        old_values NVARCHAR(MAX)
+            NOT NULL,
+
+        new_values NVARCHAR(MAX)
+            NOT NULL,
+
+        CONSTRAINT fk_reservation_history_reservation
+            FOREIGN KEY(reservation_id)
+            REFERENCES dbo.reservations(reservation_id),
+
+        CONSTRAINT fk_reservation_history_staff
+            FOREIGN KEY(changed_by_staff_id)
+            REFERENCES dbo.staff(staff_id)
+    );
+END;
+GO
+
+INSERT INTO dbo.reservation_tables
+(
+    reservation_id,
+    table_id
+)
+SELECT
+    r.reservation_id,
+    r.table_id
+FROM dbo.reservations r
+WHERE NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.reservation_tables rt
+    WHERE rt.reservation_id = r.reservation_id
+      AND rt.table_id = r.table_id
+);
+GO
+
+IF NOT EXISTS
+(
+    SELECT 1
+    FROM sys.indexes
+    WHERE object_id = OBJECT_ID('dbo.reservation_tables')
+      AND name = 'ix_reservation_tables_table'
+)
+BEGIN
+    CREATE INDEX ix_reservation_tables_table
+    ON dbo.reservation_tables(table_id, reservation_id);
+END;
+GO
+
+IF NOT EXISTS
+(
+    SELECT 1
+    FROM sys.indexes
+    WHERE object_id = OBJECT_ID('dbo.reservation_change_history')
+      AND name = 'ix_reservation_change_history_reservation_date'
+)
+BEGIN
+    CREATE INDEX ix_reservation_change_history_reservation_date
+    ON dbo.reservation_change_history
+    (
+        reservation_id,
+        changed_at DESC
+    );
+END;
+GO
 PRINT 'RMS_SERVLET DATABASE READY';
 PRINT 'Staff authentication and roles';
 PRINT 'Restaurant table management';
@@ -1381,4 +1472,3 @@ PRINT 'Payments';
 PRINT 'Inventory transactions';
 PRINT 'Walk-in groups and group tables';
 PRINT 'Database indexes';
-GO
