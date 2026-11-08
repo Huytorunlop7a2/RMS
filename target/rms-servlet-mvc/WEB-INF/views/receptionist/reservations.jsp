@@ -1,433 +1,414 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
-<%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+    <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+        <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 
+            <c:set var="ctx" value="${pageContext.request.contextPath}" />
+            <c:set var="activePage" value="reservations" />
 
-<c:set var="ctx" value="${pageContext.request.contextPath}" />
-<c:set var="activePage" value="reservations" />
+            <!doctype html>
+            <html lang="vi">
 
-<!doctype html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Quản lý đặt bàn</title>
-    <link rel="stylesheet" href="${ctx}/assets/css/app.css?v=receptionist-sidebar-2">
-</head>
-<body>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>Quản lý đặt bàn</title>
+                <link rel="stylesheet" href="${ctx}/assets/css/app.css?v=receptionist-sidebar-2">
+            </head>
 
-<div class="layout">
+            <body>
 
-    <%@ include file="sidebar.jsp" %>
+                <div class="layout">
 
-    <main class="main">
-        <div class="container">
+                    <%@ include file="sidebar.jsp" %>
 
-            <div class="page-head">
-                <div>
-                    <h1>Quản lý đặt bàn</h1>
-                    <p class="muted">
-                        Tiếp nhận và quản lý lịch đặt bàn của khách hàng.
-                    </p>
-                </div>
-            </div>
+                        <main class="main">
+                            <div class="container">
 
-            <c:if test="${not empty success}">
-                <div class="alert alert-success">
-                    <c:out value="${success}" />
-                </div>
-            </c:if>
-
-            <c:if test="${not empty error}">
-                <div class="alert alert-danger">
-                    <c:out value="${error}" />
-                </div>
-            </c:if>
-
-            <section class="card section">
-
-                <h2>Tìm bàn phù hợp</h2>
-
-                <p class="muted">
-                    Tìm bàn đơn hoặc nhóm bàn phù hợp với số khách
-                    và thời gian đặt bàn.
-                </p>
-
-                <form method="get"
-                      action="${ctx}/receptionist/reservations">
-
-                    <input type="hidden" name="search" value="1">
-
-                    <div class="grid grid-3">
-
-                        <div class="form-group">
-                            <label>Ngày</label>
-                            <input type="date"
-                                   name="reservationDate"
-                                   value="${searchDate}"
-                                   required>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Giờ bắt đầu</label>
-                            <input type="time"
-                                   name="startTime"
-                                   value="${searchStart}"
-                                   required>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Số khách</label>
-                            <input type="number"
-                                   min="1"
-                                   name="partySize"
-                                   value="${searchPartySize}"
-                                   required>
-                        </div>
-
-                    </div>
-
-                    <button class="btn btn-primary" type="submit">
-                        Tìm bàn
-                    </button>
-
-                </form>
-
-            </section>
-
-            <c:if test="${searched}">
-
-                <section class="card section">
-
-                    <h2>Chọn phương án bàn</h2>
-
-                    <p class="muted">
-                        Khung giờ
-                        <c:out value="${searchStart}" />
-                        -
-                        <c:out value="${searchEnd}" />
-                        ·
-                        <c:out value="${searchPartySize}" />
-                        khách.
-                    </p>
-
-                    <c:choose>
-
-                        <c:when test="${empty suggestions}">
-
-                            <div class="alert alert-danger">
-                                Không có bàn hoặc nhóm bàn phù hợp.
-                            </div>
-
-                        </c:when>
-
-                        <c:otherwise>
-
-                            <form method="post"
-                                  action="${ctx}/receptionist/reservations">
-
-                                <input type="hidden"
-                                       name="action"
-                                       value="create">
-
-                                <input type="hidden"
-                                       name="reservationDate"
-                                       value="${searchDate}">
-
-                                <input type="hidden"
-                                       name="startTime"
-                                       value="${searchStart}">
-
-                                <input type="hidden"
-                                       name="partySize"
-                                       value="${searchPartySize}">
-
-                                <div class="table-wrap">
-
-                                    <table class="data-table">
-
-                                        <thead>
-                                            <tr>
-                                                <th>Chọn</th>
-                                                <th>Phương án</th>
-                                                <th>Bàn</th>
-                                                <th>Tổng chỗ</th>
-                                                <th>Ghế dư</th>
-                                                <th>Loại</th>
-                                            </tr>
-                                        </thead>
-
-                                        <tbody>
-
-                                            <c:forEach var="s"
-                                                       items="${suggestions}"
-                                                       varStatus="loop">
-
-                                                <tr>
-
-                                                    <td>
-                                                        <input type="radio"
-                                                               name="candidateKey"
-                                                               value="${s.candidateKey}"
-                                                               ${loop.first ? 'checked' : ''}>
-                                                    </td>
-
-                                                    <td>
-                                                        <b>
-                                                            <c:out value="${s.name}" />
-                                                        </b>
-
-                                                        <c:if test="${loop.first}">
-                                                            <br>
-                                                            <span class="badge badge-success">
-                                                                Khuyến nghị
-                                                            </span>
-                                                        </c:if>
-                                                    </td>
-
-                                                    <td>
-                                                        <c:out value="${s.tableDisplay}" />
-                                                    </td>
-
-                                                    <td>
-                                                        <c:out value="${s.totalCapacity}" />
-                                                    </td>
-
-                                                    <td>
-                                                        <c:out value="${s.waste}" />
-                                                    </td>
-
-                                                    <td>
-                                                        <c:choose>
-                                                            <c:when test="${s.tableCount gt 1}">
-                                                                Ghép bàn
-                                                            </c:when>
-                                                            <c:otherwise>
-                                                                Bàn đơn
-                                                            </c:otherwise>
-                                                        </c:choose>
-                                                    </td>
-
-                                                </tr>
-
-                                            </c:forEach>
-
-                                        </tbody>
-
-                                    </table>
-
+                                <div class="page-head">
+                                    <div>
+                                        <h1>Quản lý đặt bàn</h1>
+                                        <p class="muted">
+                                            Tiếp nhận và quản lý lịch đặt bàn của khách hàng.
+                                        </p>
+                                    </div>
                                 </div>
 
-                                <h3 style="margin-top:22px">
-                                    Thông tin khách
-                                </h3>
-
-                                <div class="grid grid-2">
-
-                                    <div class="form-group">
-                                        <label>Tên khách</label>
-                                        <input name="customerName" required>
+                                <c:if test="${not empty success}">
+                                    <div class="alert alert-success">
+                                        <c:out value="${success}" />
                                     </div>
+                                </c:if>
 
-                                    <div class="form-group">
-                                        <label>Số điện thoại</label>
-                                        <input name="phoneNumber"
-                                               maxlength="20"
-                                               required>
+                                <c:if test="${not empty error}">
+                                    <div class="alert alert-danger">
+                                        <c:out value="${error}" />
                                     </div>
+                                </c:if>
 
-                                </div>
+                                <section class="card section">
 
-                                <button class="btn btn-primary" type="submit">
-                                    Xác nhận đặt bàn
-                                </button>
+                                    <h2>Tìm bàn phù hợp</h2>
 
-                            </form>
+                                    <p class="muted">
+                                        Tìm bàn đơn hoặc nhóm bàn phù hợp với số khách
+                                        và thời gian đặt bàn.
+                                    </p>
 
-                        </c:otherwise>
+                                    <form method="get" action="${ctx}/receptionist/reservations">
 
-                    </c:choose>
+                                        <input type="hidden" name="search" value="1">
 
-                </section>
+                                        <div class="grid grid-3">
 
-            </c:if>
+                                            <div class="form-group">
+                                                <label>Ngày</label>
+                                                <input type="date" name="reservationDate" value="${searchDate}"
+                                                    required>
+                                            </div>
 
-            <section class="card section">
+                                            <div class="form-group">
+                                                <label>Giờ bắt đầu</label>
+                                                <input type="time" name="startTime" value="${searchStart}" required>
+                                            </div>
 
-                <h2>Danh sách đặt bàn</h2>
+                                            <div class="form-group">
+                                                <label>Số khách</label>
+                                                <input type="number" min="1" name="partySize" value="${searchPartySize}"
+                                                    required>
+                                            </div>
 
-                <div class="table-wrap">
+                                        </div>
 
-                    <table class="data-table">
+                                        <button class="btn btn-primary" type="submit">
+                                            Tìm bàn
+                                        </button>
 
-                        <thead>
-                            <tr>
-                                <th>Khách</th>
-                                <th>Bàn</th>
-                                <th>Ngày giờ</th>
-                                <th>Số khách</th>
-                                <th>Trạng thái</th>
-                                <th>Thao tác</th>
-                            </tr>
-                        </thead>
+                                    </form>
 
-                        <tbody>
+                                </section>
 
-                            <c:forEach var="r" items="${reservations}">
+                                <c:if test="${searched}">
 
-                                <tr>
+                                    <section class="card section">
 
-                                    <td>
-                                        <b>
-                                            <c:out value="${r.customerName}" />
-                                        </b>
-                                        <br>
-                                        <span class="muted">
-                                            <c:out value="${r.phoneNumber}" />
-                                        </span>
-                                    </td>
+                                        <h2>Chọn phương án bàn</h2>
 
-                                    <td>
-                                        <b>
-                                            <c:out value="${r.tableNumber}" />
-                                        </b>
-                                    </td>
-
-                                    <td>
-                                        <c:out value="${r.reservationDate}" />
-                                        <br>
-                                        <c:out value="${r.startTime}" />
-                                        -
-                                        <c:out value="${r.endTime}" />
-                                    </td>
-
-                                    <td>
-                                        <c:out value="${r.partySize}" />
-                                    </td>
-
-                                    <td>
+                                        <p class="muted">
+                                            Khung giờ
+                                            <c:out value="${searchStart}" />
+                                            -
+                                            <c:out value="${searchEnd}" />
+                                            ·
+                                            <c:out value="${searchPartySize}" />
+                                            khách.
+                                        </p>
 
                                         <c:choose>
 
-                                            <c:when test="${r.status eq 'CONFIRMED'}">
-                                                <span class="badge badge-warning">
-                                                    Đã xác nhận
-                                                </span>
-                                            </c:when>
+                                            <c:when test="${empty suggestions}">
 
-                                            <c:when test="${r.status eq 'CHECKED_IN'}">
-                                                <span class="badge badge-success">
-                                                    Đã check-in
-                                                </span>
-                                            </c:when>
+                                                <div class="alert alert-danger">
+                                                    Không có bàn hoặc nhóm bàn phù hợp.
+                                                </div>
 
-                                            <c:when test="${r.status eq 'COMPLETED'}">
-                                                <span class="badge badge-info">
-                                                    Hoàn tất
-                                                </span>
-                                            </c:when>
-
-                                            <c:when test="${r.status eq 'CANCELLED'}">
-                                                <span class="badge badge-danger">
-                                                    Đã hủy
-                                                </span>
-                                            </c:when>
-
-                                            <c:when test="${r.status eq 'NO_SHOW'}">
-                                                <span class="badge">
-                                                    No-show
-                                                </span>
                                             </c:when>
 
                                             <c:otherwise>
-                                                <span class="badge">
-                                                    <c:out value="${r.status}" />
-                                                </span>
+
+                                                <form method="post" action="${ctx}/receptionist/reservations">
+
+                                                    <input type="hidden" name="action" value="create">
+
+                                                    <input type="hidden" name="reservationDate" value="${searchDate}">
+
+                                                    <input type="hidden" name="startTime" value="${searchStart}">
+
+                                                    <input type="hidden" name="partySize" value="${searchPartySize}">
+
+                                                    <div class="table-wrap">
+
+                                                        <table class="data-table">
+
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Chọn</th>
+                                                                    <th>Phương án</th>
+                                                                    <th>Bàn</th>
+                                                                    <th>Tổng chỗ</th>
+                                                                    <th>Ghế dư</th>
+                                                                    <th>Loại</th>
+                                                                </tr>
+                                                            </thead>
+
+                                                            <tbody>
+
+                                                                <c:forEach var="s" items="${suggestions}"
+                                                                    varStatus="loop">
+
+                                                                    <tr>
+
+                                                                        <td>
+                                                                            <input type="radio" name="candidateKey"
+                                                                                value="${s.candidateKey}" ${loop.first
+                                                                                ? 'checked' : '' }>
+                                                                        </td>
+
+                                                                        <td>
+                                                                            <b>
+                                                                                <c:out value="${s.name}" />
+                                                                            </b>
+
+                                                                            <c:if test="${loop.first}">
+                                                                                <br>
+                                                                                <span class="badge badge-success">
+                                                                                    Khuyến nghị
+                                                                                </span>
+                                                                            </c:if>
+                                                                        </td>
+
+                                                                        <td>
+                                                                            <c:out value="${s.tableDisplay}" />
+                                                                        </td>
+
+                                                                        <td>
+                                                                            <c:out value="${s.totalCapacity}" />
+                                                                        </td>
+
+                                                                        <td>
+                                                                            <c:out value="${s.waste}" />
+                                                                        </td>
+
+                                                                        <td>
+                                                                            <c:choose>
+                                                                                <c:when test="${s.tableCount gt 1}">
+                                                                                    Ghép bàn
+                                                                                </c:when>
+                                                                                <c:otherwise>
+                                                                                    Bàn đơn
+                                                                                </c:otherwise>
+                                                                            </c:choose>
+                                                                        </td>
+
+                                                                    </tr>
+
+                                                                </c:forEach>
+
+                                                            </tbody>
+
+                                                        </table>
+
+                                                    </div>
+
+                                                    <h3 style="margin-top:22px">
+                                                        Thông tin khách
+                                                    </h3>
+
+                                                    <div class="grid grid-2">
+
+                                                        <div class="form-group">
+                                                            <label>Tên khách</label>
+                                                            <input name="customerName" required>
+                                                        </div>
+
+                                                        <div class="form-group">
+                                                            <label>Số điện thoại</label>
+                                                            <input name="phoneNumber" maxlength="20" required>
+                                                        </div>
+
+                                                    </div>
+
+                                                    <button class="btn btn-primary" type="submit">
+                                                        Ghi nhận đặt bàn
+                                                    </button>
+
+                                                </form>
+
                                             </c:otherwise>
 
                                         </c:choose>
 
-                                    </td>
+                                    </section>
 
-                                    <td>
+                                </c:if>
 
-                                        <c:if test="${r.status eq 'CONFIRMED'}">
+                                <section class="card section">
 
-                                            <div class="inline">
+                                    <h2>Danh sách đặt bàn</h2>
 
-                                                <form method="post"
-                                                      action="${ctx}/receptionist/reservations">
+                                    <div class="table-wrap">
 
-                                                    <input type="hidden"
-                                                           name="action"
-                                                           value="checkin">
+                                        <table class="data-table">
 
-                                                    <input type="hidden"
-                                                           name="id"
-                                                           value="${r.reservationId}">
+                                            <thead>
+                                                <tr>
+                                                    <th>Khách</th>
+                                                    <th>Bàn</th>
+                                                    <th>Ngày giờ</th>
+                                                    <th>Số khách</th>
+                                                    <th>Trạng thái</th>
+                                                    <th>Thao tác</th>
+                                                </tr>
+                                            </thead>
 
-                                                    <button class="btn btn-sm btn-success">
-                                                        Check-in
-                                                    </button>
+                                            <tbody>
 
-                                                </form>
+                                                <c:forEach var="r" items="${reservations}">
 
-                                                <form method="post"
-                                                      action="${ctx}/receptionist/reservations">
+                                                    <tr>
 
-                                                    <input type="hidden"
-                                                           name="action"
-                                                           value="cancel">
+                                                        <td>
+                                                            <b>
+                                                                <c:out value="${r.customerName}" />
+                                                            </b>
+                                                            <br>
+                                                            <span class="muted">
+                                                                <c:out value="${r.phoneNumber}" />
+                                                            </span>
+                                                        </td>
 
-                                                    <input type="hidden"
-                                                           name="id"
-                                                           value="${r.reservationId}">
+                                                        <td>
+                                                            <b>
+                                                                <c:out value="${r.tableNumber}" />
+                                                            </b>
+                                                        </td>
 
-                                                    <button class="btn btn-sm btn-danger">
-                                                        Hủy
-                                                    </button>
+                                                        <td>
+                                                            <c:out value="${r.reservationDate}" />
+                                                            <br>
+                                                            <c:out value="${r.startTime}" />
+                                                            -
+                                                            <c:out value="${r.endTime}" />
+                                                        </td>
 
-                                                </form>
+                                                        <td>
+                                                            <c:out value="${r.partySize}" />
+                                                        </td>
 
-                                                <form method="post"
-                                                      action="${ctx}/receptionist/reservations">
+                                                        <td>
 
-                                                    <input type="hidden"
-                                                           name="action"
-                                                           value="noshow">
+                                                            <c:choose>
 
-                                                    <input type="hidden"
-                                                           name="id"
-                                                           value="${r.reservationId}">
+                                                                <c:when test="${r.status eq 'CONFIRMED'}">
+                                                                    <span class="badge badge-warning">
+                                                                        Đã xác nhận
+                                                                    </span>
+                                                                </c:when>
 
-                                                    <button class="btn btn-sm">
-                                                        No-show
-                                                    </button>
+                                                                <c:when test="${r.status eq 'CHECKED_IN'}">
+                                                                    <span class="badge badge-success">
+                                                                        Đã check-in
+                                                                    </span>
+                                                                </c:when>
 
-                                                </form>
+                                                                <c:when test="${r.status eq 'COMPLETED'}">
+                                                                    <span class="badge badge-info">
+                                                                        Hoàn tất
+                                                                    </span>
+                                                                </c:when>
 
-                                            </div>
+                                                                <c:when test="${r.status eq 'CANCELLED'}">
+                                                                    <span class="badge badge-danger">
+                                                                        Đã hủy
+                                                                    </span>
+                                                                </c:when>
 
-                                        </c:if>
+                                                                <c:when test="${r.status eq 'NO_SHOW'}">
+                                                                    <span class="badge">
+                                                                        No-show
+                                                                    </span>
+                                                                </c:when>
 
-                                    </td>
+                                                                <c:otherwise>
+                                                                    <span class="badge">
+                                                                        <c:out value="${r.status}" />
+                                                                    </span>
+                                                                </c:otherwise>
 
-                                </tr>
+                                                            </c:choose>
 
-                            </c:forEach>
+                                                        </td>
 
-                        </tbody>
+                                                        <td>
 
-                    </table>
+                                                            <c:if test="${r.status eq 'CONFIRMED'}">
+
+                                                                <div class="inline">
+
+                                                                    <c:if test="${r.canEdit}">
+                                                                        <a class="btn btn-sm btn-outline"
+                                                                            href="${ctx}/receptionist/reservations/edit?id=${r.reservationId}">
+                                                                            Sửa
+                                                                        </a>
+                                                                    </c:if>
+
+                                                                    <form method="post"
+                                                                        action="${ctx}/receptionist/reservations">
+
+                                                                        <input type="hidden" name="action"
+                                                                            value="checkin">
+
+                                                                        <input type="hidden" name="id"
+                                                                            value="${r.reservationId}">
+
+                                                                        <button class="btn btn-sm btn-success">
+                                                                            Check-in
+                                                                        </button>
+
+                                                                    </form>
+
+                                                                    <form method="post"
+                                                                        action="${ctx}/receptionist/reservations">
+
+                                                                        <input type="hidden" name="action"
+                                                                            value="cancel">
+
+                                                                        <input type="hidden" name="id"
+                                                                            value="${r.reservationId}">
+
+                                                                        <button class="btn btn-sm btn-danger">
+                                                                            Hủy
+                                                                        </button>
+
+                                                                    </form>
+
+                                                                    <form method="post"
+                                                                        action="${ctx}/receptionist/reservations">
+
+                                                                        <input type="hidden" name="action"
+                                                                            value="noshow">
+
+                                                                        <input type="hidden" name="id"
+                                                                            value="${r.reservationId}">
+
+                                                                        <button class="btn btn-sm">
+                                                                            No-show
+                                                                        </button>
+
+                                                                    </form>
+
+                                                                </div>
+
+                                                            </c:if>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                </c:forEach>
+
+                                            </tbody>
+
+                                        </table>
+
+                                    </div>
+
+                                </section>
+
+                            </div>
+                        </main>
 
                 </div>
 
-            </section>
+            </body>
 
-        </div>
-    </main>
-
-</div>
-
-</body>
-</html>
+            </html>

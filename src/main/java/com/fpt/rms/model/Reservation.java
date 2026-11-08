@@ -6,9 +6,12 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 public class Reservation {
+
     private static final int CHECKIN_EARLY_MINUTES = 30;
     private static final int NO_SHOW_AFTER_MINUTES = 30;
+
     private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
     private long reservationId;
     private long tableId;
     private String tableNumber;
@@ -104,6 +107,7 @@ public class Reservation {
         if (reservationDate == null || startTime == null) {
             return null;
         }
+
         return LocalDateTime.of(reservationDate, startTime);
     }
 
@@ -111,32 +115,46 @@ public class Reservation {
         if (reservationDate == null || endTime == null) {
             return null;
         }
+
         return LocalDateTime.of(reservationDate, endTime);
     }
 
     public boolean isCanCheckIn() {
+
         if (!"CONFIRMED".equals(status)) {
             return false;
         }
+
         LocalDateTime start = getStartDateTime();
+
         if (start == null) {
             return false;
         }
+
         LocalDateTime now = LocalDateTime.now();
+
         LocalDateTime earliest = start.minusMinutes(CHECKIN_EARLY_MINUTES);
+
         LocalDateTime noShowAt = start.plusMinutes(NO_SHOW_AFTER_MINUTES);
-        return !now.isBefore(earliest) && now.isBefore(noShowAt);
+
+        return !now.isBefore(earliest)
+                && now.isBefore(noShowAt);
     }
 
     public boolean isCanNoShow() {
+
         if (!"CONFIRMED".equals(status)) {
             return false;
         }
+
         LocalDateTime start = getStartDateTime();
+
         if (start == null) {
             return false;
         }
+
         LocalDateTime noShowAt = start.plusMinutes(NO_SHOW_AFTER_MINUTES);
+
         return !LocalDateTime.now().isBefore(noShowAt);
     }
 
@@ -144,37 +162,58 @@ public class Reservation {
         return "CONFIRMED".equals(status);
     }
 
+    public boolean isCanEdit() {
+
+        LocalDateTime start = getStartDateTime();
+
+        return "CONFIRMED".equals(status)
+                && start != null
+                && LocalDateTime.now().isBefore(start);
+    }
+
     public String getActionHint() {
+
         if (!"CONFIRMED".equals(status)) {
             return "";
         }
+
         LocalDateTime start = getStartDateTime();
+
         if (start == null) {
             return "";
         }
+
         LocalDateTime now = LocalDateTime.now();
+
         LocalDateTime earliest = start.minusMinutes(CHECKIN_EARLY_MINUTES);
+
         LocalDateTime noShowAt = start.plusMinutes(NO_SHOW_AFTER_MINUTES);
+
         if (now.isBefore(earliest)) {
-            return "Check-in từ " + earliest.format(DATE_TIME_FORMAT);
+            return "Check-in từ "
+                    + earliest.format(DATE_TIME_FORMAT);
         }
+
         if (now.isBefore(noShowAt)) {
             return "Đang trong khung giờ check-in";
         }
+
         return "Đã quá 30 phút, có thể đánh dấu No-show";
     }
 
     public String getStatusLabel() {
+
         if (status == null) {
             return "";
         }
+
         return switch (status) {
-        case "CONFIRMED" -> "Đã xác nhận";
-        case "CHECKED_IN" -> "Đã check-in";
-        case "COMPLETED" -> "Hoàn thành";
-        case "CANCELLED" -> "Đã hủy";
-        case "NO_SHOW" -> "Không đến";
-        default -> status;
+            case "CONFIRMED" -> "Đã xác nhận";
+            case "CHECKED_IN" -> "Đã check-in";
+            case "COMPLETED" -> "Hoàn thành";
+            case "CANCELLED" -> "Đã hủy";
+            case "NO_SHOW" -> "Không đến";
+            default -> status;
         };
     }
 }

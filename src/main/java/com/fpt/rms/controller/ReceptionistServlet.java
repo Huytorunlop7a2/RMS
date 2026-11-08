@@ -1,12 +1,13 @@
-
 package com.fpt.rms.controller;
 
 import com.fpt.rms.dao.ReservationDAO;
 import com.fpt.rms.dao.TableDAO;
 import com.fpt.rms.dao.WalkInGroupDAO;
+import com.fpt.rms.model.Reservation;
 import com.fpt.rms.model.Staff;
 import com.fpt.rms.model.TableCandidate;
 import com.fpt.rms.service.ReservationService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -15,10 +16,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @WebServlet(urlPatterns = { "/receptionist", "/receptionist/*" })
 public class ReceptionistServlet extends HttpServlet {
@@ -33,14 +37,40 @@ public class ReceptionistServlet extends HttpServlet {
             HttpServletRequest req,
             HttpServletResponse resp) throws ServletException, IOException {
 
+        req.setCharacterEncoding("UTF-8");
+
+        consumeFlash(req);
+
+        String path = req.getPathInfo();
+
+        if ("/reservations/edit".equals(path)) {
+
+            try {
+                prepareEditPage(req);
+
+                req.getRequestDispatcher(
+                        "/WEB-INF/views/receptionist/reservation-edit.jsp").forward(req, resp);
+
+            } catch (Exception e) {
+
+                req.getSession().setAttribute(
+                        "flashError",
+                        message(e));
+
+                resp.sendRedirect(
+                        req.getContextPath()
+                                + "/receptionist/reservations");
+            }
+
+            return;
+        }
+
         String page = resolvePage(req);
 
         if (page == null) {
             resp.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
-
-        consumeFlash(req);
 
         if ("reservations".equals(page)) {
             loadReservationData(req);
@@ -61,11 +91,18 @@ public class ReceptionistServlet extends HttpServlet {
             HttpServletRequest req,
             HttpServletResponse resp) throws IOException {
 
+        req.setCharacterEncoding("UTF-8");
+
         String action = req.getParameter("action");
+
         String redirectPath = resolveRedirectPath(action);
 
+        long updatingReservationId = -1;
+
         try {
-            Staff staff = (Staff) req.getSession().getAttribute("staff");
+
+            Staff staff = (Staff) req.getSession()
+                    .getAttribute("staff");
 
             if (staff == null) {
                 throw new IllegalStateException(
@@ -79,13 +116,39 @@ public class ReceptionistServlet extends HttpServlet {
                 long reservationId = reservationService.confirmReservation(
                         req.getParameter("customerName"),
                         req.getParameter("phoneNumber"),
-                        LocalDate.parse(req.getParameter("reservationDate")),
-                        LocalTime.parse(req.getParameter("startTime")),
-                        Integer.parseInt(req.getParameter("partySize")),
+                        LocalDate.parse(
+                                req.getParameter("reservationDate")),
+                        LocalTime.parse(
+                                req.getParameter("startTime")),
+                        Integer.parseInt(
+                                req.getParameter("partySize")),
                         req.getParameter("candidateKey"),
                         staff.getStaffId());
 
                 successMessage = "Đã tạo reservation #" + reservationId + " thành công";
+
+            } else if ("update".equals(action)) {
+
+                updatingReservationId = Long.parseLong(
+                        req.getParameter("id"));
+
+                reservationService.updateReservation(
+                        updatingReservationId,
+                        req.getParameter("customerName"),
+                        req.getParameter("phoneNumber"),
+                        LocalDate.parse(
+                                req.getParameter("reservationDate")),
+                        LocalTime.parse(
+                                req.getParameter("startTime")),
+                        Integer.parseInt(
+                                req.getParameter("partySize")),
+                        req.getParameter("candidateKey"),
+                        staff.getStaffId(),
+                        req.getParameter("reason"));
+
+                successMessage = "Đã cập nhật Reservation #"
+                        + updatingReservationId
+                        + " thành công";
 
             } else if ("checkin".equals(action)
                     || "cancel".equals(action)
@@ -94,7 +157,9 @@ public class ReceptionistServlet extends HttpServlet {
                 long reservationId = Long.parseLong(
                         req.getParameter("id"));
 
-                reservationDAO.changeStatus(reservationId, action);
+                reservationDAO.changeStatus(
+                        reservationId,
+                        action);
 
                 successMessage = "Đã cập nhật trạng thái đặt bàn";
 
@@ -104,7 +169,8 @@ public class ReceptionistServlet extends HttpServlet {
                         req.getParameterValues("tableIds"),
                         staff.getStaffId());
 
-                successMessage = "Đã gộp bàn walk-in thành công. Nhóm #" + groupId;
+                successMessage = "Đã gộp bàn walk-in thành công. Nhóm #"
+                        + groupId;
 
             } else if ("releaseOne".equals(action)
                     || "release".equals(action)) {
@@ -112,7 +178,8 @@ public class ReceptionistServlet extends HttpServlet {
                 long tableId = Long.parseLong(
                         req.getParameter("id"));
 
-                boolean walkInMember = walkInGroupDAO.releaseSingleTableIfMember(tableId);
+                boolean walkInMember = walkInGroupDAO.releaseSingleTableIfMember(
+                        tableId);
 
                 if (!walkInMember) {
                     tableDAO.releaseTable(tableId);
@@ -127,7 +194,8 @@ public class ReceptionistServlet extends HttpServlet {
                 long tableId = Long.parseLong(
                         req.getParameter("id"));
 
-                boolean released = walkInGroupDAO.releaseWholeGroupIfMember(tableId);
+                boolean released = walkInGroupDAO.releaseWholeGroupIfMember(
+                        tableId);
 
                 if (!released) {
                     throw new IllegalStateException(
@@ -151,10 +219,212 @@ public class ReceptionistServlet extends HttpServlet {
             req.getSession().setAttribute(
                     "flashError",
                     message(e));
+
+            if ("update".equals(action)
+                    && updatingReservationId > 0) {
+
+                resp.sendRedirect(
+                        req.getContextPath()
+                                + buildEditRedirect(
+                                        req,
+                                        updatingReservationId));
+
+                return;
+            }
         }
 
         resp.sendRedirect(
                 req.getContextPath() + redirectPath);
+    }
+
+    private void prepareEditPage(
+            HttpServletRequest req) throws Exception {
+
+        long reservationId = Long.parseLong(
+                req.getParameter("id"));
+
+        Reservation reservation = reservationDAO.findById(reservationId);
+
+        reservationService.ensureEditable(reservation);
+
+        LocalDate date = hasText(
+                req.getParameter("reservationDate"))
+                        ? LocalDate.parse(req.getParameter("reservationDate"))
+                        : reservation.getReservationDate();
+
+        LocalTime start = hasText(
+                req.getParameter("startTime"))
+                        ? LocalTime.parse(req.getParameter("startTime"))
+                        : reservation.getStartTime();
+
+        int partySize = hasText(
+                req.getParameter("partySize"))
+                        ? Integer.parseInt(req.getParameter("partySize"))
+                        : reservation.getPartySize();
+
+        String customerName = hasText(
+                req.getParameter("customerName"))
+                        ? req.getParameter("customerName")
+                        : reservation.getCustomerName();
+
+        String phoneNumber = hasText(
+                req.getParameter("phoneNumber"))
+                        ? req.getParameter("phoneNumber")
+                        : reservation.getPhoneNumber();
+
+        String reason = req.getParameter("reason");
+
+        List<TableCandidate> suggestions = Collections.emptyList();
+
+        String editSearchError = null;
+
+        try {
+
+            suggestions = reservationService.suggestTablesForEdit(
+                    date,
+                    start,
+                    partySize,
+                    reservationId);
+
+        } catch (Exception e) {
+
+            editSearchError = message(e);
+        }
+
+        List<Long> currentTableIds = reservationDAO.findTableIds(reservationId);
+
+        String currentCandidateKey = currentTableIds.stream()
+                .sorted()
+                .map(String::valueOf)
+                .collect(Collectors.joining(","));
+
+        String selectedCandidateKey = req.getParameter("candidateKey");
+
+        final String requestedCandidateKey = selectedCandidateKey;
+
+        boolean selectedExists = hasText(requestedCandidateKey)
+                && suggestions.stream().anyMatch(
+                        candidate -> candidate.getCandidateKey()
+                                .equals(requestedCandidateKey));
+
+        if (!selectedExists) {
+
+            boolean currentExists = suggestions.stream().anyMatch(
+                    candidate -> candidate.getCandidateKey()
+                            .equals(currentCandidateKey));
+
+            selectedCandidateKey = currentExists
+                    ? currentCandidateKey
+                    : suggestions.isEmpty()
+                            ? ""
+                            : suggestions.get(0).getCandidateKey();
+        }
+
+        req.setAttribute(
+                "editingReservation",
+                reservation);
+
+        req.setAttribute(
+                "today",
+                LocalDate.now());
+
+        req.setAttribute(
+                "editCustomerName",
+                customerName);
+
+        req.setAttribute(
+                "editPhoneNumber",
+                phoneNumber);
+
+        req.setAttribute("editDate", date);
+        req.setAttribute("editStart", start);
+        req.setAttribute("editEnd", start.plusHours(2));
+        req.setAttribute("editPartySize", partySize);
+        req.setAttribute("editReason", reason);
+
+        req.setAttribute(
+                "currentTableIds",
+                currentCandidateKey);
+
+        req.setAttribute(
+                "suggestions",
+                suggestions);
+
+        req.setAttribute(
+                "editSearchError",
+                editSearchError);
+
+        req.setAttribute(
+                "selectedCandidateKey",
+                selectedCandidateKey);
+    }
+
+    private String buildEditRedirect(
+            HttpServletRequest req,
+            long reservationId) {
+
+        StringBuilder url = new StringBuilder(
+                "/receptionist/reservations/edit?id=" + reservationId);
+
+        appendQuery(
+                url,
+                "customerName",
+                req.getParameter("customerName"));
+
+        appendQuery(
+                url,
+                "phoneNumber",
+                req.getParameter("phoneNumber"));
+
+        appendQuery(
+                url,
+                "reservationDate",
+                req.getParameter("reservationDate"));
+
+        appendQuery(
+                url,
+                "startTime",
+                req.getParameter("startTime"));
+
+        appendQuery(
+                url,
+                "partySize",
+                req.getParameter("partySize"));
+
+        appendQuery(
+                url,
+                "candidateKey",
+                req.getParameter("candidateKey"));
+
+        appendQuery(
+                url,
+                "reason",
+                req.getParameter("reason"));
+
+        return url.toString();
+    }
+
+    private void appendQuery(
+            StringBuilder url,
+            String name,
+            String value) {
+
+        if (value == null) {
+            return;
+        }
+
+        url.append(url.indexOf("?") >= 0 ? "&" : "?")
+                .append(URLEncoder.encode(
+                        name,
+                        StandardCharsets.UTF_8))
+                .append("=")
+                .append(URLEncoder.encode(
+                        value,
+                        StandardCharsets.UTF_8));
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private String resolvePage(HttpServletRequest req) {
@@ -177,6 +447,7 @@ public class ReceptionistServlet extends HttpServlet {
     private String resolveRedirectPath(String action) {
 
         if ("create".equals(action)
+                || "update".equals(action)
                 || "checkin".equals(action)
                 || "cancel".equals(action)
                 || "noshow".equals(action)) {
@@ -188,14 +459,21 @@ public class ReceptionistServlet extends HttpServlet {
 
     private void loadReservationData(HttpServletRequest req) {
 
-        req.setAttribute("reservations", Collections.emptyList());
+        req.setAttribute(
+                "reservations",
+                Collections.emptyList());
 
         try {
+
             req.setAttribute(
                     "reservations",
                     reservationDAO.findAll());
+
         } catch (Exception e) {
-            req.setAttribute("error", message(e));
+
+            req.setAttribute(
+                    "error",
+                    message(e));
         }
     }
 
@@ -206,6 +484,7 @@ public class ReceptionistServlet extends HttpServlet {
         }
 
         try {
+
             LocalDate date = LocalDate.parse(
                     req.getParameter("reservationDate"));
 
@@ -228,18 +507,32 @@ public class ReceptionistServlet extends HttpServlet {
             req.setAttribute("searchPartySize", partySize);
 
         } catch (Exception e) {
-            req.setAttribute("error", message(e));
+
+            req.setAttribute(
+                    "error",
+                    message(e));
         }
     }
 
     private void loadWalkInData(HttpServletRequest req) {
 
-        req.setAttribute("tables", Collections.emptyList());
-        req.setAttribute("activeWalkInTableIds", Collections.emptySet());
-        req.setAttribute("activeWalkInGroupLabels", Collections.emptyMap());
+        req.setAttribute(
+                "tables",
+                Collections.emptyList());
+
+        req.setAttribute(
+                "activeWalkInTableIds",
+                Collections.emptySet());
+
+        req.setAttribute(
+                "activeWalkInGroupLabels",
+                Collections.emptyMap());
 
         try {
-            req.setAttribute("tables", tableDAO.findAll());
+
+            req.setAttribute(
+                    "tables",
+                    tableDAO.findAll());
 
             req.setAttribute(
                     "activeWalkInTableIds",
@@ -250,7 +543,10 @@ public class ReceptionistServlet extends HttpServlet {
                     walkInGroupDAO.findActiveGroupLabels());
 
         } catch (Exception e) {
-            req.setAttribute("error", message(e));
+
+            req.setAttribute(
+                    "error",
+                    message(e));
         }
     }
 
