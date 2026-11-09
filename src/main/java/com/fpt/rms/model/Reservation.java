@@ -1,3 +1,4 @@
+
 package com.fpt.rms.model;
 
 import java.time.LocalDate;
@@ -10,7 +11,8 @@ public class Reservation {
     private static final int CHECKIN_EARLY_MINUTES = 30;
     private static final int NO_SHOW_AFTER_MINUTES = 30;
 
-    private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final DateTimeFormatter DATE_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private long reservationId;
     private long tableId;
@@ -133,9 +135,11 @@ public class Reservation {
 
         LocalDateTime now = LocalDateTime.now();
 
-        LocalDateTime earliest = start.minusMinutes(CHECKIN_EARLY_MINUTES);
+        LocalDateTime earliest =
+                start.minusMinutes(CHECKIN_EARLY_MINUTES);
 
-        LocalDateTime noShowAt = start.plusMinutes(NO_SHOW_AFTER_MINUTES);
+        LocalDateTime noShowAt =
+                start.plusMinutes(NO_SHOW_AFTER_MINUTES);
 
         return !now.isBefore(earliest)
                 && now.isBefore(noShowAt);
@@ -153,7 +157,8 @@ public class Reservation {
             return false;
         }
 
-        LocalDateTime noShowAt = start.plusMinutes(NO_SHOW_AFTER_MINUTES);
+        LocalDateTime noShowAt =
+                start.plusMinutes(NO_SHOW_AFTER_MINUTES);
 
         return !LocalDateTime.now().isBefore(noShowAt);
     }
@@ -162,13 +167,44 @@ public class Reservation {
         return "CONFIRMED".equals(status);
     }
 
+    /**
+     * Reservation can be edited while it is CONFIRMED and before the
+     * 30-minute grace period expires. Before the scheduled start, edits are
+     * unrestricted; from the scheduled start until the grace deadline,
+     * the UI exposes restricted editing only.
+     */
     public boolean isCanEdit() {
 
         LocalDateTime start = getStartDateTime();
 
         return "CONFIRMED".equals(status)
                 && start != null
-                && LocalDateTime.now().isBefore(start);
+                && LocalDateTime.now().isBefore(
+                        start.plusMinutes(NO_SHOW_AFTER_MINUTES));
+    }
+
+    /**
+     * True only during the 30-minute period after the scheduled start.
+     */
+    public boolean isRestrictedEdit() {
+
+        if (!"CONFIRMED".equals(status)) {
+            return false;
+        }
+
+        LocalDateTime start = getStartDateTime();
+
+        if (start == null) {
+            return false;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        LocalDateTime deadline =
+                start.plusMinutes(NO_SHOW_AFTER_MINUTES);
+
+        return !now.isBefore(start)
+                && now.isBefore(deadline);
     }
 
     public String getActionHint() {
@@ -185,9 +221,11 @@ public class Reservation {
 
         LocalDateTime now = LocalDateTime.now();
 
-        LocalDateTime earliest = start.minusMinutes(CHECKIN_EARLY_MINUTES);
+        LocalDateTime earliest =
+                start.minusMinutes(CHECKIN_EARLY_MINUTES);
 
-        LocalDateTime noShowAt = start.plusMinutes(NO_SHOW_AFTER_MINUTES);
+        LocalDateTime noShowAt =
+                start.plusMinutes(NO_SHOW_AFTER_MINUTES);
 
         if (now.isBefore(earliest)) {
             return "Check-in từ "
@@ -195,6 +233,11 @@ public class Reservation {
         }
 
         if (now.isBefore(noShowAt)) {
+
+            if (!now.isBefore(start)) {
+                return "Chỉ được sửa thông tin khách, số khách và bàn";
+            }
+
             return "Đang trong khung giờ check-in";
         }
 

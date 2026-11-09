@@ -1,3 +1,4 @@
+
 package com.fpt.rms.service;
 
 import com.fpt.rms.dao.OpeningHourDAO;
@@ -39,12 +40,13 @@ public class ReservationService {
     private static final int MAX_SUGGESTIONS = 8;
     private static final int MAX_SEARCH_STATES_PER_AREA = 25000;
 
-    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter TIME_FORMAT =
+            DateTimeFormatter.ofPattern("HH:mm");
 
-    private static final Comparator<TableCandidate> CANDIDATE_COMPARATOR = Comparator
-            .comparingInt(TableCandidate::getWaste)
-            .thenComparingInt(TableCandidate::getTableCount)
-            .thenComparing(TableCandidate::getTableDisplay);
+    private static final Comparator<TableCandidate> CANDIDATE_COMPARATOR =
+            Comparator.comparingInt(TableCandidate::getWaste)
+                    .thenComparingInt(TableCandidate::getTableCount)
+                    .thenComparing(TableCandidate::getTableDisplay);
 
     private final ReservationDAO reservationDAO = new ReservationDAO();
     private final TableDAO tableDAO = new TableDAO();
@@ -60,7 +62,8 @@ public class ReservationService {
                 date,
                 start,
                 partySize,
-                null);
+                null,
+                false);
     }
 
     public List<TableCandidate> suggestTablesForEdit(
@@ -73,20 +76,38 @@ public class ReservationService {
 
         ensureEditable(reservation);
 
-        LocalDateTime requestedStart = LocalDateTime.of(date, start);
+        boolean restrictedEdit = isRestrictedEdit(reservation);
 
-        if (!requestedStart.isAfter(LocalDateTime.now())) {
-            throw new IllegalArgumentException(
-                    "Giờ đặt mới phải nằm trong tương lai");
+        if (restrictedEdit) {
+
+            if (!reservation.getReservationDate().equals(date)
+                    || !reservation.getStartTime().equals(start)) {
+
+                throw new IllegalArgumentException(
+                        "Trong thời gian ân hạn 30 phút, không được thay đổi ngày hoặc giờ đặt.");
+            }
+
+        } else {
+
+            LocalDateTime requestedStart =
+                    LocalDateTime.of(date, start);
+
+            if (!requestedStart.isAfter(LocalDateTime.now())) {
+
+                throw new IllegalArgumentException(
+                        "Giờ đặt mới phải nằm trong tương lai");
+            }
         }
 
         List<TableCandidate> suggestions = suggestTablesInternal(
                 date,
                 start,
                 partySize,
-                reservationId);
+                reservationId,
+                restrictedEdit);
 
-        List<Long> currentTableIds = reservationDAO.findTableIds(reservationId);
+        List<Long> currentTableIds =
+                reservationDAO.findTableIds(reservationId);
 
         String currentKey = currentTableIds.stream()
                 .sorted()
@@ -94,7 +115,8 @@ public class ReservationService {
                 .collect(Collectors.joining(","));
 
         boolean currentAlreadyIncluded = suggestions.stream()
-                .anyMatch(candidate -> candidate.getCandidateKey().equals(currentKey));
+                .anyMatch(candidate ->
+                        candidate.getCandidateKey().equals(currentKey));
 
         if (!currentAlreadyIncluded && !currentTableIds.isEmpty()) {
 
@@ -106,14 +128,26 @@ public class ReservationService {
 
             List<RestaurantTable> activeTables = tableDAO.findActive();
 
-            Map<Long, RestaurantTable> activeById = activeTables.stream().collect(
-                    Collectors.toMap(
-                            RestaurantTable::getTableId,
-                            table -> table));
+            if (restrictedEdit) {
 
-            boolean allActiveAndAvailable = currentTableIds.stream().allMatch(
-                    id -> activeById.containsKey(id)
-                            && !busyTableIds.contains(id));
+                for (RestaurantTable table : activeTables) {
+
+                    if ("OCCUPIED".equals(table.getStatus())) {
+                        busyTableIds.add(table.getTableId());
+                    }
+                }
+            }
+
+            Map<Long, RestaurantTable> activeById =
+                    activeTables.stream().collect(
+                            Collectors.toMap(
+                                    RestaurantTable::getTableId,
+                                    table -> table));
+
+            boolean allActiveAndAvailable = currentTableIds.stream()
+                    .allMatch(id ->
+                            activeById.containsKey(id)
+                                    && !busyTableIds.contains(id));
 
             if (allActiveAndAvailable) {
 
@@ -128,7 +162,9 @@ public class ReservationService {
                 boolean validGroup = currentTableIds.size() == 1;
 
                 if (currentTableIds.size() > 1) {
+
                     try (Connection c = DBContext.getConnection()) {
+
                         validGroup = layoutDAO.isValidMergeGroup(
                                 c,
                                 currentTableIds);
@@ -137,7 +173,8 @@ public class ReservationService {
 
                 if (currentCapacity >= partySize && validGroup) {
 
-                    TableCandidate currentCandidate = createCandidate(currentTables, partySize);
+                    TableCandidate currentCandidate =
+                            createCandidate(currentTables, partySize);
 
                     if (suggestions.size() >= MAX_SUGGESTIONS) {
                         suggestions.remove(suggestions.size() - 1);
@@ -155,42 +192,79 @@ public class ReservationService {
     public void ensureEditable(Reservation reservation) {
 
         if (reservation == null) {
+
             throw new IllegalArgumentException(
                     "Đặt bàn không tồn tại");
         }
 
         if (!"CONFIRMED".equals(reservation.getStatus())) {
+
             throw new IllegalStateException(
                     "Chỉ Reservation đã xác nhận mới được chỉnh sửa");
         }
 
-        LocalDateTime reservationStart = reservation.getStartDateTime();
+        LocalDateTime reservationStart =
+                reservation.getStartDateTime();
 
-        if (reservationStart == null
-                || !reservationStart.isAfter(LocalDateTime.now())) {
+        if (reservationStart == null) {
 
             throw new IllegalStateException(
-                    "Không thể sửa Reservation khi đã đến hoặc qua giờ bắt đầu");
+                    "Reservation thiếu ngày hoặc giờ bắt đầu");
         }
+
+        LocalDateTime editDeadline =
+                reservationStart.plusMinutes(30);
+
+        if (!LocalDateTime.now().isBefore(editDeadline)) {
+
+            throw new IllegalStateException(
+                    "Reservation đã hết thời gian chỉnh sửa (30 phút ân hạn). "
+                    + "Vui lòng check trạng thái và xác nhận No-show nếu khách không đến.");
+        }
+    }
+
+    public boolean isRestrictedEdit(Reservation reservation) {
+
+        if (reservation == null
+                || !"CONFIRMED".equals(reservation.getStatus())) {
+            return false;
+        }
+
+        LocalDateTime reservationStart =
+                reservation.getStartDateTime();
+
+        if (reservationStart == null) {
+            return false;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        return !now.isBefore(reservationStart)
+                && now.isBefore(reservationStart.plusMinutes(30));
     }
 
     private List<TableCandidate> suggestTablesInternal(
             LocalDate date,
             LocalTime start,
             int partySize,
-            Long excludedReservationId) throws SQLException {
+            Long excludedReservationId,
+            boolean allowPastForExistingReservation) throws SQLException {
 
         LocalTime end = validateBasicSearch(
                 date,
                 start,
-                partySize);
+                partySize,
+                allowPastForExistingReservation);
 
-        OpeningHour openingHour = openingHourDAO.findByDate(date);
+        if (!allowPastForExistingReservation) {
 
-        validateOpeningHours(
-                openingHour,
-                start,
-                end);
+            OpeningHour openingHour = openingHourDAO.findByDate(date);
+
+            validateOpeningHours(
+                    openingHour,
+                    start,
+                    end);
+        }
 
         Set<Long> busyTableIds = reservationDAO.findBusyTableIds(
                 date,
@@ -202,9 +276,11 @@ public class ReservationService {
 
         LocalDateTime now = LocalDateTime.now();
 
-        LocalDateTime requestedStart = LocalDateTime.of(date, start);
+        LocalDateTime requestedStart =
+                LocalDateTime.of(date, start);
 
-        LocalDateTime requestedEnd = requestedStart.plusHours(RESERVATION_HOURS);
+        LocalDateTime requestedEnd =
+                requestedStart.plusHours(RESERVATION_HOURS);
 
         boolean intervalContainsNow = !now.isBefore(requestedStart)
                 && now.isBefore(requestedEnd);
@@ -272,27 +348,46 @@ public class ReservationService {
             LocalTime start,
             int partySize) {
 
+        return validateBasicSearch(
+                date,
+                start,
+                partySize,
+                false);
+    }
+
+    private LocalTime validateBasicSearch(
+            LocalDate date,
+            LocalTime start,
+            int partySize,
+            boolean allowPastForExistingReservation) {
+
         if (date == null || start == null) {
+
             throw new IllegalArgumentException(
                     "Ngày và giờ đặt bàn không được để trống");
         }
 
         if (partySize < 1) {
+
             throw new IllegalArgumentException(
                     "Số khách phải lớn hơn 0");
         }
 
-        LocalDateTime startDateTime = LocalDateTime.of(date, start);
+        LocalDateTime startDateTime =
+                LocalDateTime.of(date, start);
 
-        if (startDateTime.isBefore(
-                LocalDateTime.now().minusMinutes(1))) {
+        if (!allowPastForExistingReservation
+                && startDateTime.isBefore(LocalDateTime.now().minusMinutes(1))) {
+
             throw new IllegalArgumentException(
                     "Không thể đặt bàn ở thời điểm đã qua");
         }
 
-        LocalDateTime endDateTime = startDateTime.plusHours(RESERVATION_HOURS);
+        LocalDateTime endDateTime =
+                startDateTime.plusHours(RESERVATION_HOURS);
 
         if (!endDateTime.toLocalDate().equals(date)) {
+
             throw new IllegalArgumentException(
                     "Hiện hệ thống chưa hỗ trợ đặt bàn kéo dài qua ngày hôm sau");
         }
@@ -306,6 +401,7 @@ public class ReservationService {
             LocalTime end) {
 
         if (openingHour == null) {
+
             throw new IllegalStateException(
                     "Ngày này chưa được cấu hình giờ hoạt động");
         }
@@ -327,6 +423,7 @@ public class ReservationService {
         LocalTime closeTime = openingHour.getCloseTime();
 
         if (openTime == null || closeTime == null) {
+
             throw new IllegalStateException(
                     "Giờ hoạt động của "
                             + openingHour.getDayName()
@@ -352,9 +449,11 @@ public class ReservationService {
             int partySize,
             List<TableCandidate> candidates) throws SQLException {
 
-        Map<String, List<TableLayout>> areas = new LinkedHashMap<>();
+        Map<String, List<TableLayout>> areas =
+                new LinkedHashMap<>();
 
         for (TableLayout layout : layouts) {
+
             areas.computeIfAbsent(
                     layout.getAreaCode(),
                     key -> new ArrayList<>()).add(layout);
@@ -362,9 +461,11 @@ public class ReservationService {
 
         for (List<TableLayout> areaLayouts : areas.values()) {
 
-            Map<Long, Set<Long>> graph = layoutDAO.buildMergeGraph(areaLayouts);
+            Map<Long, Set<Long>> graph =
+                    layoutDAO.buildMergeGraph(areaLayouts);
 
-            List<Long> startIds = new ArrayList<>(graph.keySet());
+            List<Long> startIds =
+                    new ArrayList<>(graph.keySet());
 
             startIds.sort(
                     Comparator.comparingLong(Long::longValue));
@@ -383,7 +484,8 @@ public class ReservationService {
                     continue;
                 }
 
-                LinkedHashSet<Long> group = new LinkedHashSet<>();
+                LinkedHashSet<Long> group =
+                        new LinkedHashSet<>();
 
                 group.add(startId);
 
@@ -420,13 +522,16 @@ public class ReservationService {
 
         exploredCount[0]++;
 
-        int totalCapacity = calculateCapacity(group, availableTables);
+        int totalCapacity =
+                calculateCapacity(group, availableTables);
 
         if (group.size() >= 2 && totalCapacity >= partySize) {
 
-            List<RestaurantTable> tables = toRestaurantTables(group, availableTables);
+            List<RestaurantTable> tables =
+                    toRestaurantTables(group, availableTables);
 
-            TableCandidate candidate = createCandidate(tables, partySize);
+            TableCandidate candidate =
+                    createCandidate(tables, partySize);
 
             addTopCandidate(candidates, candidate);
 
@@ -440,6 +545,7 @@ public class ReservationService {
         TreeSet<Long> frontier = new TreeSet<>();
 
         for (Long tableId : group) {
+
             frontier.addAll(
                     graph.getOrDefault(
                             tableId,
@@ -458,7 +564,8 @@ public class ReservationService {
                 continue;
             }
 
-            LinkedHashSet<Long> expandedGroup = new LinkedHashSet<>(group);
+            LinkedHashSet<Long> expandedGroup =
+                    new LinkedHashSet<>(group);
 
             expandedGroup.add(neighborId);
 
@@ -480,7 +587,9 @@ public class ReservationService {
         int total = 0;
 
         for (Long id : group) {
-            RestaurantTable table = availableTables.get(id);
+
+            RestaurantTable table =
+                    availableTables.get(id);
 
             if (table != null) {
                 total += table.getCapacity();
@@ -494,10 +603,13 @@ public class ReservationService {
             Set<Long> group,
             Map<Long, RestaurantTable> availableTables) {
 
-        List<RestaurantTable> tables = new ArrayList<>();
+        List<RestaurantTable> tables =
+                new ArrayList<>();
 
         for (Long id : group) {
-            RestaurantTable table = availableTables.get(id);
+
+            RestaurantTable table =
+                    availableTables.get(id);
 
             if (table != null) {
                 tables.add(table);
@@ -511,6 +623,7 @@ public class ReservationService {
     }
 
     private String createIdGroupKey(Set<Long> group) {
+
         return group.stream()
                 .sorted()
                 .map(String::valueOf)
@@ -521,7 +634,8 @@ public class ReservationService {
             List<RestaurantTable> inputTables,
             int partySize) {
 
-        List<RestaurantTable> tables = new ArrayList<>(inputTables);
+        List<RestaurantTable> tables =
+                new ArrayList<>(inputTables);
 
         tables.sort(
                 Comparator.comparing(RestaurantTable::getTableNumber));
@@ -530,7 +644,8 @@ public class ReservationService {
                 .mapToInt(RestaurantTable::getCapacity)
                 .sum();
 
-        TableCandidate candidate = new TableCandidate();
+        TableCandidate candidate =
+                new TableCandidate();
 
         candidate.setTables(tables);
 
@@ -543,9 +658,12 @@ public class ReservationService {
         candidate.setCandidateKey(candidateKey);
 
         if (tables.size() == 1) {
+
             candidate.setName(
                     "Bàn " + tables.get(0).getTableNumber());
+
         } else {
+
             String tableNames = tables.stream()
                     .map(RestaurantTable::getTableNumber)
                     .collect(Collectors.joining(" + "));
@@ -565,9 +683,11 @@ public class ReservationService {
             TableCandidate candidate) {
 
         candidates.add(candidate);
+
         candidates.sort(CANDIDATE_COMPARATOR);
 
         if (candidates.size() > MAX_SUGGESTIONS) {
+
             candidates.subList(
                     MAX_SUGGESTIONS,
                     candidates.size()).clear();
@@ -583,20 +703,30 @@ public class ReservationService {
             String selectedTableIdsCsv,
             long staffId) throws SQLException {
 
-        LocalTime end = validateBasicSearch(date, start, partySize);
+        LocalTime end = validateBasicSearch(
+                date,
+                start,
+                partySize);
 
-        validateCustomer(customerName, phoneNumber);
+        validateCustomer(
+                customerName,
+                phoneNumber);
 
-        List<Long> selectedIds = parseCsv(selectedTableIdsCsv);
+        List<Long> selectedIds =
+                parseCsv(selectedTableIdsCsv);
 
         if (selectedIds.isEmpty()) {
+
             throw new IllegalArgumentException(
                     "Vui lòng chọn một phương án bàn");
         }
 
         if (selectedIds.size() > MAX_MERGED_TABLES) {
+
             throw new IllegalStateException(
-                    "Không được ghép quá " + MAX_MERGED_TABLES + " bàn");
+                    "Không được ghép quá "
+                            + MAX_MERGED_TABLES
+                            + " bàn");
         }
 
         try (Connection c = DBContext.getConnection()) {
@@ -605,26 +735,37 @@ public class ReservationService {
 
             try {
 
-                OpeningHour openingHour = openingHourDAO.findByDate(c, date, true);
+                OpeningHour openingHour =
+                        openingHourDAO.findByDate(c, date, true);
 
-                validateOpeningHours(openingHour, start, end);
+                validateOpeningHours(
+                        openingHour,
+                        start,
+                        end);
 
-                List<RestaurantTable> tables = tableDAO.findByIds(c, selectedIds, true);
+                List<RestaurantTable> tables =
+                        tableDAO.findByIds(c, selectedIds, true);
 
                 if (tables.size() != selectedIds.size()) {
+
                     throw new IllegalStateException(
                             "Có bàn không tồn tại");
                 }
 
                 for (RestaurantTable table : tables) {
+
                     if (!table.isActive()) {
+
                         throw new IllegalStateException(
-                                "Bàn " + table.getTableNumber() + " đã ngừng sử dụng");
+                                "Bàn "
+                                        + table.getTableNumber()
+                                        + " đã ngừng sử dụng");
                     }
                 }
 
                 if (selectedIds.size() > 1
                         && !layoutDAO.isValidMergeGroup(c, selectedIds)) {
+
                     throw new IllegalStateException(
                             "Các bàn đã chọn phải tạo thành một cụm liền kề duy nhất "
                                     + "theo sơ đồ và quy tắc ghép bàn");
@@ -635,25 +776,31 @@ public class ReservationService {
                         .sum();
 
                 if (totalCapacity < partySize) {
+
                     throw new IllegalStateException(
                             "Phương án bàn không đủ sức chứa");
                 }
 
                 LocalDateTime now = LocalDateTime.now();
 
-                LocalDateTime requestedStart = LocalDateTime.of(date, start);
+                LocalDateTime requestedStart =
+                        LocalDateTime.of(date, start);
 
-                LocalDateTime requestedEnd = requestedStart.plusHours(RESERVATION_HOURS);
+                LocalDateTime requestedEnd =
+                        requestedStart.plusHours(RESERVATION_HOURS);
 
-                boolean intervalContainsNow = !now.isBefore(requestedStart)
-                        && now.isBefore(requestedEnd);
+                boolean intervalContainsNow =
+                        !now.isBefore(requestedStart)
+                                && now.isBefore(requestedEnd);
 
                 if (intervalContainsNow) {
 
                     boolean occupied = tables.stream()
-                            .anyMatch(table -> "OCCUPIED".equals(table.getStatus()));
+                            .anyMatch(table ->
+                                    "OCCUPIED".equals(table.getStatus()));
 
                     if (occupied) {
+
                         throw new IllegalStateException(
                                 "Một hoặc nhiều bàn đang được sử dụng");
                     }
@@ -665,21 +812,23 @@ public class ReservationService {
                         date,
                         start,
                         end)) {
+
                     throw new IllegalStateException(
                             "Một hoặc nhiều bàn vừa được đặt bởi Reservation khác. "
                                     + "Vui lòng chọn lại bàn.");
                 }
 
-                long reservationId = reservationDAO.insertReservation(
-                        c,
-                        selectedIds.get(0),
-                        staffId,
-                        customerName.trim(),
-                        phoneNumber.trim(),
-                        date,
-                        start,
-                        end,
-                        partySize);
+                long reservationId =
+                        reservationDAO.insertReservation(
+                                c,
+                                selectedIds.get(0),
+                                staffId,
+                                customerName.trim(),
+                                phoneNumber.trim(),
+                                date,
+                                start,
+                                end,
+                                partySize);
 
                 reservationDAO.insertReservationTables(
                         c,
@@ -712,30 +861,31 @@ public class ReservationService {
             long staffId,
             String reason) throws SQLException {
 
-        LocalTime end = validateBasicSearch(date, start, partySize);
-
-        if (!LocalDateTime.of(date, start).isAfter(LocalDateTime.now())) {
-            throw new IllegalArgumentException(
-                    "Giờ đặt mới phải nằm trong tương lai");
-        }
-
-        validateCustomer(customerName, phoneNumber);
+        validateCustomer(
+                customerName,
+                phoneNumber);
 
         if (reason != null && reason.trim().length() > 500) {
+
             throw new IllegalArgumentException(
                     "Lý do chỉnh sửa tối đa 500 ký tự");
         }
 
-        List<Long> selectedIds = parseCsv(selectedTableIdsCsv);
+        List<Long> selectedIds =
+                parseCsv(selectedTableIdsCsv);
 
         if (selectedIds.isEmpty()) {
+
             throw new IllegalArgumentException(
                     "Vui lòng chọn một phương án bàn");
         }
 
         if (selectedIds.size() > MAX_MERGED_TABLES) {
+
             throw new IllegalStateException(
-                    "Không được ghép quá " + MAX_MERGED_TABLES + " bàn");
+                    "Không được ghép quá "
+                            + MAX_MERGED_TABLES
+                            + " bàn");
         }
 
         try (Connection c = DBContext.getConnection()) {
@@ -744,51 +894,108 @@ public class ReservationService {
 
             try {
 
-                Reservation current = reservationDAO.lockReservation(
-                        c,
-                        reservationId);
+                Reservation current =
+                        reservationDAO.lockReservation(
+                                c,
+                                reservationId);
 
                 ensureEditable(current);
 
+                boolean restrictedEdit =
+                        isRestrictedEdit(current);
+
+                if (restrictedEdit) {
+
+                    if (!current.getReservationDate().equals(date)
+                            || !current.getStartTime().equals(start)) {
+
+                        throw new IllegalArgumentException(
+                                "Sau giờ đặt, không được thay đổi ngày hoặc giờ Reservation.");
+                    }
+
+                    if (reason == null || reason.isBlank()) {
+
+                        throw new IllegalArgumentException(
+                                "Bắt buộc nhập lý do khi chỉnh sửa Reservation sau giờ đặt.");
+                    }
+
+                } else {
+
+                    if (!LocalDateTime.of(date, start)
+                            .isAfter(LocalDateTime.now())) {
+
+                        throw new IllegalArgumentException(
+                                "Giờ đặt mới phải nằm trong tương lai");
+                    }
+                }
+
+                LocalTime end = validateBasicSearch(
+                        date,
+                        start,
+                        partySize,
+                        restrictedEdit);
+
                 if (reservationDAO.hasOpenOrder(c, reservationId)) {
+
                     throw new IllegalStateException(
                             "Reservation đã phát sinh đơn hàng mở nên không thể chỉnh sửa");
                 }
 
-                List<Long> oldTableIds = reservationDAO.findTableIds(
-                        c,
-                        reservationId,
-                        current.getTableId());
+                List<Long> oldTableIds =
+                        reservationDAO.findTableIds(
+                                c,
+                                reservationId,
+                                current.getTableId());
 
-                OpeningHour openingHour = openingHourDAO.findByDate(
-                        c,
-                        date,
-                        true);
+                if (!restrictedEdit) {
 
-                validateOpeningHours(
-                        openingHour,
-                        start,
-                        end);
+                    OpeningHour openingHour =
+                            openingHourDAO.findByDate(
+                                    c,
+                                    date,
+                                    true);
 
-                List<RestaurantTable> tables = tableDAO.findByIds(
-                        c,
-                        selectedIds,
-                        true);
+                    validateOpeningHours(
+                            openingHour,
+                            start,
+                            end);
+                }
+
+                List<RestaurantTable> tables =
+                        tableDAO.findByIds(
+                                c,
+                                selectedIds,
+                                true);
 
                 if (tables.size() != selectedIds.size()) {
+
                     throw new IllegalStateException(
                             "Có bàn không tồn tại");
                 }
 
                 for (RestaurantTable table : tables) {
+
                     if (!table.isActive()) {
+
                         throw new IllegalStateException(
-                                "Bàn " + table.getTableNumber() + " đã ngừng sử dụng");
+                                "Bàn "
+                                        + table.getTableNumber()
+                                        + " đã ngừng sử dụng");
+                    }
+
+                    if (restrictedEdit
+                            && "OCCUPIED".equals(table.getStatus())) {
+
+                        throw new IllegalStateException(
+                                "Bàn "
+                                        + table.getTableNumber()
+                                        + " đang có khách sử dụng, không thể gán cho Reservation.");
                     }
                 }
 
                 if (selectedIds.size() > 1
                         && !layoutDAO.isValidMergeGroup(c, selectedIds)) {
+
                     throw new IllegalStateException(
                             "Các bàn đã chọn phải tạo thành một cụm liền kề duy nhất "
                                     + "theo sơ đồ ghép bàn");
@@ -799,6 +1006,7 @@ public class ReservationService {
                         .sum();
 
                 if (totalCapacity < partySize) {
+
                     throw new IllegalStateException(
                             "Phương án bàn không đủ sức chứa cho số khách mới");
                 }
@@ -810,6 +1018,7 @@ public class ReservationService {
                         start,
                         end,
                         reservationId)) {
+
                     throw new IllegalStateException(
                             "Một hoặc nhiều bàn vừa được Reservation khác đặt. "
                                     + "Vui lòng tìm lại bàn.");
@@ -913,21 +1122,25 @@ public class ReservationService {
             String phoneNumber) {
 
         if (customerName == null || customerName.isBlank()) {
+
             throw new IllegalArgumentException(
                     "Tên khách không được để trống");
         }
 
         if (!customerName.trim().matches("[\\p{L} ]+")) {
+
             throw new IllegalArgumentException(
                     "Tên khách hàng chỉ được chứa chữ cái và khoảng trắng");
         }
 
         if (phoneNumber == null || phoneNumber.isBlank()) {
+
             throw new IllegalArgumentException(
                     "Số điện thoại không được để trống");
         }
 
         if (!phoneNumber.trim().matches("[0-9+ .()-]{8,20}")) {
+
             throw new IllegalArgumentException(
                     "Số điện thoại không hợp lệ");
         }
@@ -942,7 +1155,9 @@ public class ReservationService {
         TreeSet<Long> ids = new TreeSet<>();
 
         for (String part : csv.split(",")) {
+
             try {
+
                 String value = part.trim();
 
                 if (value.isBlank()) {
@@ -958,6 +1173,7 @@ public class ReservationService {
                 ids.add(id);
 
             } catch (NumberFormatException e) {
+
                 throw new IllegalArgumentException(
                         "Phương án bàn không hợp lệ");
             }
