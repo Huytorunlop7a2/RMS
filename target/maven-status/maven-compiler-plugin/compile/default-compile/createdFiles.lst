@@ -28,6 +28,7 @@ com\fpt\rms\dao\OrderDAO$RequestedItem.class
 com\fpt\rms\dao\TableLayoutDAO.class
 com\fpt\rms\controller\ManagerOpeningHoursServlet.class
 com\fpt\rms\dao\TableDAO$ReservationTableMember.class
+com\fpt\rms\dao\ReservationListDAO.class
 com\fpt\rms\model\OpeningHour.class
 com\fpt\rms\dao\ReservationDAO.class
 com\fpt\rms\model\MenuItem.class

@@ -236,7 +236,6 @@ BEGIN
     );
 END;
 GO
-
 IF COL_LENGTH('dbo.inventory_items', 'reserved_quantity') IS NULL
 BEGIN
     ALTER TABLE dbo.inventory_items
@@ -583,6 +582,7 @@ BEGIN
     );
 END;
 GO
+
 IF COL_LENGTH('dbo.walk_in_group_tables', 'active') IS NULL
 BEGIN
     ALTER TABLE dbo.walk_in_group_tables
@@ -837,7 +837,6 @@ BEGIN
     ON dbo.menu_items(name);
 END;
 GO
-
 ;WITH pending_ranked AS
 (
     SELECT
@@ -984,6 +983,7 @@ BEGIN
     ON dbo.reservation_change_history(reservation_id, changed_at DESC);
 END;
 GO
+
 IF NOT EXISTS (SELECT 1 FROM dbo.staff)
 BEGIN
     INSERT INTO dbo.staff
@@ -1367,8 +1367,8 @@ SELECT
 FROM dbo.reservation_change_history;
 GO
 
-
 GO
+
 IF OBJECT_ID(
     'dbo.reservation_change_history',
     'U'
@@ -1458,6 +1458,7 @@ BEGIN
     );
 END;
 GO
+
 PRINT 'RMS_SERVLET DATABASE READY';
 PRINT 'Staff authentication and roles';
 PRINT 'Restaurant table management';
