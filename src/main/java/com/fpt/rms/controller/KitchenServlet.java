@@ -4,6 +4,13 @@ import com.fpt.rms.dao.InventoryDAO;
 import com.fpt.rms.dao.OrderDAO;
 
 import com.fpt.rms.model.Staff;
+import com.fpt.rms.model.OrderDetail;
+import com.fpt.rms.model.RestaurantOrder;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -23,8 +30,21 @@ public class KitchenServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         try {
-            req.setAttribute("orders", orderDAO.findPendingKitchenOrders());
-            req.setAttribute("inventory", inventoryDAO.findAll());
+            HttpSession session = req.getSession();
+
+            String mode = req.getParameter("mode");
+
+            if ("table".equals(mode) || "group".equals(mode)) {
+                session.setAttribute("kitchenMode", mode);
+            } else {
+                Object saved = session.getAttribute("kitchenMode");
+                mode = "group".equals(saved) ? "group" : "table";
+            }
+
+            List<RestaurantOrder> orders = orderDAO.findPendingKitchenOrders();
+            req.setAttribute("kitchenMode", mode);
+            req.setAttribute("orders", orders);
+            req.setAttribute("dishGroups", buildDishGroups(orders));
             consumeFlash(req);
             req.getRequestDispatcher("/WEB-INF/views/kitchen/dashboard.jsp").forward(req, resp);
         } catch (Exception e) {
@@ -40,16 +60,42 @@ public class KitchenServlet extends HttpServlet {
                 throw new IllegalStateException("Phiên đăng nhập đã hết hạn");
             }
             String action = req.getParameter("action");
-            if (!"readyDetail".equals(action)) {
+
+            if ("readyDetail".equals(action)) {
+
+                String detailIdValue = req.getParameter("detailId");
+
+                if (detailIdValue == null || detailIdValue.isBlank()) {
+                    throw new IllegalArgumentException("Thiếu mã món");
+                }
+
+                long detailId = Long.parseLong(detailIdValue);
+
+                inventoryDAO.markDetailReady(detailId, staff.getStaffId());
+
+                req.getSession().setAttribute(
+                        "flashSuccess",
+                        "Món #" + detailId + " đã hoàn thành.");
+
+            } else if ("readyOrder".equals(action)) {
+
+                String orderIdValue = req.getParameter("orderId");
+
+                if (orderIdValue == null || orderIdValue.isBlank()) {
+                    throw new IllegalArgumentException("Thiếu mã đơn hàng");
+                }
+
+                long orderId = Long.parseLong(orderIdValue);
+
+                inventoryDAO.markOrderReady(orderId, staff.getStaffId());
+
+                req.getSession().setAttribute(
+                        "flashSuccess",
+                        "Đơn #" + orderId + " đã hoàn thành tất cả món!");
+
+            } else {
                 throw new IllegalArgumentException("Thao tác của bếp không hợp lệ");
             }
-            String detailIdValue = req.getParameter("detailId");
-            if (detailIdValue == null || detailIdValue.isBlank()) {
-                throw new IllegalArgumentException("Thiếu mã món");
-            }
-            long detailId = Long.parseLong(detailIdValue);
-            inventoryDAO.markDetailReady(detailId, staff.getStaffId());
-            req.getSession().setAttribute("flashSuccess", "Món #" + detailId + " đã hoàn thành và chuyển sang READY.");
         } catch (Exception e) {
             req.getSession().setAttribute("flashError", message(e));
         }
@@ -74,5 +120,73 @@ public class KitchenServlet extends HttpServlet {
             value = e.getMessage();
         }
         return value == null || value.isBlank() ? "Không thể xử lý món ăn" : value;
+    }
+
+    public static class DishGroup {
+        private final long menuItemId;
+        private final String menuItemName;
+        private final String categoryName;
+        private final List<OrderDetail> details = new ArrayList<>();
+        private int totalQuantity;
+
+        public DishGroup(OrderDetail d) {
+            this.menuItemId = d.getMenuItemId();
+            this.menuItemName = d.getMenuItemName();
+            this.categoryName = d.getCategoryName();
+        }
+
+        public void addDetail(OrderDetail d) {
+            details.add(d);
+            totalQuantity += d.getQuantity();
+        }
+
+        public long getMenuItemId() {
+            return menuItemId;
+        }
+
+        public String getMenuItemName() {
+            return menuItemName;
+        }
+
+        public String getCategoryName() {
+            return categoryName;
+        }
+
+        public List<OrderDetail> getDetails() {
+            return details;
+        }
+
+        public int getTotalQuantity() {
+            return totalQuantity;
+        }
+    }
+
+    private List<DishGroup> buildDishGroups(
+            List<RestaurantOrder> orders) {
+
+        Map<Long, DishGroup> groups = new LinkedHashMap<>();
+
+        for (RestaurantOrder order : orders) {
+
+            for (OrderDetail detail : order.getDetails()) {
+
+                if (!"PENDING".equals(detail.getStatus())) {
+                    continue;
+                }
+
+                long menuItemId = detail.getMenuItemId();
+
+                DishGroup group = groups.get(menuItemId);
+
+                if (group == null) {
+                    group = new DishGroup(detail);
+                    groups.put(menuItemId, group);
+                }
+
+                group.addDetail(detail);
+            }
+        }
+
+        return new ArrayList<>(groups.values());
     }
 }

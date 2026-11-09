@@ -164,13 +164,18 @@ public class InventoryDAO {
         if (orderDetailId <= 0) {
             throw new IllegalArgumentException("Mã món không hợp lệ");
         }
+
         try (Connection c = DBContext.getConnection()) {
             c.setAutoCommit(false);
+
             try {
                 long orderId;
-                String orderDetailSql = "SELECT order_id " + "FROM order_details " + "WHERE order_detail_id=?";
-                try (PreparedStatement ps = c.prepareStatement(orderDetailSql)) {
+
+                String sql = "SELECT order_id FROM order_details WHERE order_detail_id=?";
+
+                try (PreparedStatement ps = c.prepareStatement(sql)) {
                     ps.setLong(1, orderDetailId);
+
                     try (ResultSet rs = ps.executeQuery()) {
                         if (!rs.next()) {
                             throw new IllegalArgumentException("Món không tồn tại");
@@ -178,92 +183,194 @@ public class InventoryDAO {
                         orderId = rs.getLong("order_id");
                     }
                 }
+
                 lockOpenOrder(c, orderId);
-                String menuItemName;
-                String detailSql = "SELECT " + "d.status, " + "m.name " + "FROM order_details d "
-                        + "WITH (UPDLOCK,HOLDLOCK) " + "JOIN menu_items m " + "ON m.menu_item_id=d.menu_item_id "
-                        + "WHERE d.order_detail_id=? " + "AND d.order_id=?";
-                try (PreparedStatement ps = c.prepareStatement(detailSql)) {
-                    ps.setLong(1, orderDetailId);
-                    ps.setLong(2, orderId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next()) {
-                            throw new IllegalArgumentException("Món không tồn tại trong đơn hàng");
-                        }
-                        if (!"PENDING".equals(rs.getString("status"))) {
-                            throw new IllegalStateException("Món không còn ở trạng thái PENDING");
-                        }
-                        menuItemName = rs.getString("name");
+                markDetailReadyInternal(c, orderDetailId, orderId, staffId);
+                refreshMenuAvailability(c);
+
+                c.commit();
+
+            } catch (Exception e) {
+                c.rollback();
+                throw wrap(e);
+            } finally {
+                c.setAutoCommit(true);
+            }
+        }
+    }
+
+    private void markDetailReadyInternal(
+            Connection c, long orderDetailId, long orderId, long staffId) throws SQLException {
+
+        String menuItemName;
+
+        String detailSql = "SELECT d.status, m.name "
+                + "FROM order_details d WITH (UPDLOCK,HOLDLOCK) "
+                + "JOIN menu_items m ON m.menu_item_id=d.menu_item_id "
+                + "WHERE d.order_detail_id=? AND d.order_id=?";
+
+        try (PreparedStatement ps = c.prepareStatement(detailSql)) {
+            ps.setLong(1, orderDetailId);
+            ps.setLong(2, orderId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalArgumentException("Món không tồn tại trong đơn hàng");
+                }
+
+                if (!"PENDING".equals(rs.getString("status"))) {
+                    throw new IllegalStateException("Món không còn ở trạng thái PENDING");
+                }
+
+                menuItemName = rs.getString("name");
+            }
+        }
+
+        Map<Long, BigDecimal> required = new LinkedHashMap<>();
+
+        String snapshotSql = "SELECT inventory_item_id, required_quantity "
+                + "FROM order_detail_ingredients "
+                + "WHERE order_detail_id=? ORDER BY inventory_item_id";
+
+        try (PreparedStatement ps = c.prepareStatement(snapshotSql)) {
+            ps.setLong(1, orderDetailId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    required.put(
+                            rs.getLong("inventory_item_id"),
+                            rs.getBigDecimal("required_quantity"));
+                }
+            }
+        }
+
+        if (required.isEmpty()) {
+            throw new IllegalStateException(
+                    "Món " + menuItemName
+                            + " chưa có dữ liệu nguyên liệu đã giữ chỗ. Hãy hủy món và đặt lại.");
+        }
+
+        for (Map.Entry<Long, BigDecimal> entry : required.entrySet()) {
+            String inventorySql = "SELECT name, quantity, reserved_quantity, active "
+                    + "FROM inventory_items WITH (UPDLOCK,HOLDLOCK) "
+                    + "WHERE inventory_item_id=?";
+
+            try (PreparedStatement ps = c.prepareStatement(inventorySql)) {
+                ps.setLong(1, entry.getKey());
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        throw new IllegalStateException("Thiếu cấu hình nguyên liệu");
+                    }
+
+                    String name = rs.getString("name");
+
+                    if (!rs.getBoolean("active")) {
+                        throw new IllegalStateException(
+                                "Nguyên liệu đã ngừng sử dụng: " + name);
+                    }
+
+                    BigDecimal onHand = rs.getBigDecimal("quantity");
+                    BigDecimal reserved = rs.getBigDecimal("reserved_quantity");
+
+                    if (reserved.compareTo(entry.getValue()) < 0) {
+                        throw new IllegalStateException(
+                                "Dữ liệu giữ chỗ nguyên liệu không đồng bộ: " + name);
+                    }
+
+                    if (onHand.compareTo(entry.getValue()) < 0) {
+                        throw new IllegalStateException(
+                                "Tồn thực tế không còn đủ cho lượng đã giữ chỗ: " + name);
                     }
                 }
-                Map<Long, BigDecimal> required = new LinkedHashMap<>();
-                String snapshotSql = "SELECT " + "inventory_item_id, " + "required_quantity "
-                        + "FROM order_detail_ingredients " + "WHERE order_detail_id=? " + "ORDER BY inventory_item_id";
-                try (PreparedStatement ps = c.prepareStatement(snapshotSql)) {
-                    ps.setLong(1, orderDetailId);
+            }
+        }
+
+        for (Map.Entry<Long, BigDecimal> entry : required.entrySet()) {
+            String consumeSql = "UPDATE inventory_items "
+                    + "SET quantity=quantity-?, reserved_quantity=reserved_quantity-? "
+                    + "WHERE inventory_item_id=? "
+                    + "AND quantity>=? AND reserved_quantity>=?";
+
+            try (PreparedStatement ps = c.prepareStatement(consumeSql)) {
+                ps.setBigDecimal(1, entry.getValue());
+                ps.setBigDecimal(2, entry.getValue());
+                ps.setLong(3, entry.getKey());
+                ps.setBigDecimal(4, entry.getValue());
+                ps.setBigDecimal(5, entry.getValue());
+
+                if (ps.executeUpdate() != 1) {
+                    throw new IllegalStateException(
+                            "Tồn kho vừa thay đổi, vui lòng thử lại");
+                }
+            }
+
+            insertTx(
+                    c,
+                    entry.getKey(),
+                    staffId,
+                    entry.getValue().negate(),
+                    null,
+                    "USAGE",
+                    "Tiêu hao cho món #" + orderDetailId + " - đơn #" + orderId,
+                    orderId);
+        }
+
+        String updateDetail = "UPDATE order_details "
+                + "SET status='READY', ready_at=SYSDATETIME() "
+                + "WHERE order_detail_id=? AND order_id=? AND status='PENDING'";
+
+        try (PreparedStatement ps = c.prepareStatement(updateDetail)) {
+            ps.setLong(1, orderDetailId);
+            ps.setLong(2, orderId);
+
+            if (ps.executeUpdate() != 1) {
+                throw new IllegalStateException(
+                        "Món vừa thay đổi trạng thái, vui lòng thử lại");
+            }
+        }
+    }
+
+    public void markOrderReady(long orderId, long staffId) throws SQLException {
+        if (orderId <= 0) {
+            throw new IllegalArgumentException("Mã đơn hàng không hợp lệ");
+        }
+
+        try (Connection c = DBContext.getConnection()) {
+            c.setAutoCommit(false);
+
+            try {
+                lockOpenOrder(c, orderId);
+
+                List<Long> pendingIds = new ArrayList<>();
+
+                String sql = "SELECT order_detail_id "
+                        + "FROM order_details WITH (UPDLOCK,HOLDLOCK) "
+                        + "WHERE order_id=? AND status='PENDING' "
+                        + "ORDER BY order_detail_id";
+
+                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                    ps.setLong(1, orderId);
+
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
-                            required.put(rs.getLong("inventory_item_id"), rs.getBigDecimal("required_quantity"));
+                            pendingIds.add(rs.getLong("order_detail_id"));
                         }
                     }
                 }
-                if (required.isEmpty()) {
-                    throw new IllegalStateException("Món " + menuItemName + " chưa có dữ liệu nguyên liệu đã giữ chỗ. "
-                            + "Hãy hủy món và đặt lại.");
+
+                if (pendingIds.isEmpty()) {
+                    throw new IllegalStateException(
+                            "Đơn hàng không còn món PENDING để hoàn thành");
                 }
-                for (Map.Entry<Long, BigDecimal> entry : required.entrySet()) {
-                    String inventorySql = "SELECT " + "name, " + "quantity, " + "reserved_quantity, " + "active "
-                            + "FROM inventory_items " + "WITH (UPDLOCK,HOLDLOCK) " + "WHERE inventory_item_id=?";
-                    try (PreparedStatement ps = c.prepareStatement(inventorySql)) {
-                        ps.setLong(1, entry.getKey());
-                        try (ResultSet rs = ps.executeQuery()) {
-                            if (!rs.next()) {
-                                throw new IllegalStateException("Thiếu cấu hình nguyên liệu");
-                            }
-                            String name = rs.getString("name");
-                            if (!rs.getBoolean("active")) {
-                                throw new IllegalStateException("Nguyên liệu đã ngừng sử dụng: " + name);
-                            }
-                            BigDecimal onHand = rs.getBigDecimal("quantity");
-                            BigDecimal reserved = rs.getBigDecimal("reserved_quantity");
-                            if (reserved.compareTo(entry.getValue()) < 0) {
-                                throw new IllegalStateException("Dữ liệu giữ chỗ nguyên liệu không đồng bộ: " + name);
-                            }
-                            if (onHand.compareTo(entry.getValue()) < 0) {
-                                throw new IllegalStateException(
-                                        "Tồn thực tế không còn đủ cho lượng đã giữ chỗ: " + name);
-                            }
-                        }
-                    }
+
+                for (long detailId : pendingIds) {
+                    markDetailReadyInternal(c, detailId, orderId, staffId);
                 }
-                for (Map.Entry<Long, BigDecimal> entry : required.entrySet()) {
-                    String consumeSql = "UPDATE inventory_items " + "SET " + "quantity=quantity-?, "
-                            + "reserved_quantity=" + "reserved_quantity-? " + "WHERE inventory_item_id=? "
-                            + "AND quantity>=? " + "AND reserved_quantity>=?";
-                    try (PreparedStatement ps = c.prepareStatement(consumeSql)) {
-                        ps.setBigDecimal(1, entry.getValue());
-                        ps.setBigDecimal(2, entry.getValue());
-                        ps.setLong(3, entry.getKey());
-                        ps.setBigDecimal(4, entry.getValue());
-                        ps.setBigDecimal(5, entry.getValue());
-                        if (ps.executeUpdate() != 1) {
-                            throw new IllegalStateException("Tồn kho vừa thay đổi, vui lòng thử lại");
-                        }
-                    }
-                    insertTx(c, entry.getKey(), staffId, entry.getValue().negate(), null, "USAGE",
-                            "Tiêu hao cho món #" + orderDetailId + " - đơn #" + orderId, orderId);
-                }
-                String updateDetail = "UPDATE order_details " + "SET " + "status='READY'," + "ready_at=SYSDATETIME() "
-                        + "WHERE order_detail_id=? " + "AND order_id=? " + "AND status='PENDING'";
-                try (PreparedStatement ps = c.prepareStatement(updateDetail)) {
-                    ps.setLong(1, orderDetailId);
-                    ps.setLong(2, orderId);
-                    if (ps.executeUpdate() != 1) {
-                        throw new IllegalStateException("Món vừa thay đổi trạng thái, vui lòng thử lại");
-                    }
-                }
+
                 refreshMenuAvailability(c);
                 c.commit();
+
             } catch (Exception e) {
                 c.rollback();
                 throw wrap(e);

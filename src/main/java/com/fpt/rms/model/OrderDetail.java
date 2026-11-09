@@ -9,6 +9,7 @@ public class OrderDetail {
     private String tableNumber;
     private long menuItemId;
     private String menuItemName;
+    private String categoryName;
     private int quantity;
     private BigDecimal unitPrice;
     private String note;
@@ -53,6 +54,14 @@ public class OrderDetail {
 
     public void setMenuItemName(String menuItemName) {
         this.menuItemName = menuItemName;
+    }
+
+    public String getCategoryName() {
+        return categoryName;
+    }
+
+    public void setCategoryName(String categoryName) {
+        this.categoryName = categoryName;
     }
 
     public int getQuantity() {

@@ -38,9 +38,41 @@ public class ManagerInventoryServlet extends HttpServlet {
             }
             String action = req.getParameter("action");
             if ("create".equals(action)) {
-                dao.create(req.getParameter("name"), req.getParameter("unit"),
-                        new BigDecimal(req.getParameter("initialQuantity")),
-                        new BigDecimal(req.getParameter("lowStockThreshold")), staff.getStaffId());
+                String unit = req.getParameter("unit");
+
+                java.util.Set<String> validUnits = java.util.Set.of(
+                        "kg", "gram", "lít", "ml",
+                        "lon", "chai", "hop", "goi", "piece", "qua");
+
+                if (!validUnits.contains(unit)) {
+                    throw new IllegalArgumentException("Đơn vị không hợp lệ");
+                }
+
+                BigDecimal quantity = new BigDecimal(req.getParameter("initialQuantity"));
+
+                BigDecimal threshold = new BigDecimal(req.getParameter("lowStockThreshold"));
+
+                if (quantity.signum() < 0 || threshold.signum() < 0) {
+                    throw new IllegalArgumentException("Số lượng không được âm");
+                }
+
+                java.util.Set<String> countUnits = java.util.Set.of(
+                        "lon", "chai", "hop", "goi", "piece", "qua");
+
+                if (countUnits.contains(unit)) {
+                    if (quantity.stripTrailingZeros().scale() > 0 ||
+                            threshold.stripTrailingZeros().scale() > 0) {
+                        throw new IllegalArgumentException(
+                                "Đơn vị đếm phải có số lượng nguyên");
+                    }
+                }
+
+                dao.create(
+                        req.getParameter("name"),
+                        unit,
+                        quantity,
+                        threshold,
+                        staff.getStaffId());
             } else if ("stockin".equals(action)) {
                 dao.stockIn(Long.parseLong(req.getParameter("id")), new BigDecimal(req.getParameter("quantity")),
                         blankDecimal(req.getParameter("unitCost")), normalizeNote(req.getParameter("note")),

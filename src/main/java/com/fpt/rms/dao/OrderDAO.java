@@ -76,11 +76,19 @@ public class OrderDAO {
     public List<RestaurantOrder> findPendingKitchenOrders() throws SQLException {
         String sql = "SELECT " + "o.order_id, " + "o.table_id, " + "COALESCE(" + "lbl.table_numbers," + "t.table_number"
                 + ") AS table_number, " + "o.order_status, " + "o.created_at, " + "d.order_detail_id, "
-                + "d.menu_item_id, " + "m.name AS menu_item_name, " + "d.quantity, " + "d.unit_price, " + "d.note, "
+                + "d.menu_item_id, " + "m.name AS menu_item_name, " + "cat.name AS category_name, " + "d.quantity, "
+                + "d.unit_price, " + "d.note, "
                 + "d.status, " + "d.created_at AS detail_created_at " + "FROM orders o " + "JOIN restaurant_tables t "
                 + "ON t.table_id=o.table_id " + TABLE_LABEL_APPLY + "JOIN order_details d "
-                + "ON d.order_id=o.order_id " + "JOIN menu_items m " + "ON m.menu_item_id=d.menu_item_id " + "WHERE "
-                + "o.order_status='OPEN' " + "AND d.status='PENDING' " + "ORDER BY " + "o.created_at, "
+                + "ON d.order_id=o.order_id " + "JOIN menu_items m " + "ON m.menu_item_id=d.menu_item_id "
+                + "JOIN menu_categories cat "
+                + "ON cat.category_id=m.category_id " + "WHERE "
+                + "o.order_status='OPEN' " + "AND d.status IN ('PENDING','READY') "
+                + "AND EXISTS ("
+                + "SELECT 1 FROM order_details pending "
+                + "WHERE pending.order_id=o.order_id "
+                + "AND pending.status='PENDING' "
+                + ") " + "ORDER BY " + "o.created_at, "
                 + "d.created_at";
         Map<Long, RestaurantOrder> map = new LinkedHashMap<>();
         try (Connection c = DBContext.getConnection();
@@ -104,6 +112,7 @@ public class OrderDAO {
                 detail.setTableNumber(order.getTableNumber());
                 detail.setMenuItemId(rs.getLong("menu_item_id"));
                 detail.setMenuItemName(rs.getString("menu_item_name"));
+                detail.setCategoryName(rs.getString("category_name"));
                 detail.setQuantity(rs.getInt("quantity"));
                 detail.setUnitPrice(rs.getBigDecimal("unit_price"));
                 detail.setNote(rs.getString("note"));
