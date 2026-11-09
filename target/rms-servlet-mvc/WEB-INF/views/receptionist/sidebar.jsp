@@ -32,6 +32,14 @@
 
         </a>
 
+        <a href="${ctx}/receptionist/table-status"
+           class="${activePage eq 'table-status' ? 'active' : ''}">
+
+            <span class="nav-icon">▤</span>
+            <span>Trạng thái bàn</span>
+
+        </a>
+
         <a href="${ctx}/logout">
             <span class="nav-icon">↪</span>
             <span>Đăng xuất</span>

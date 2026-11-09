@@ -198,6 +198,7 @@
                                 <%--=====================================QUAN TRỌNG MAP THEO
                                 TABLE NUMBER=====================================--%>
                                 <c:set var="walkInGroupLabel" value="${activeWalkInGroupLabels[t.tableNumber]}" />
+                                <c:set var="reservationInfo" value="${activeReservationTables[t.tableId]}" />
                                 <tr>
 
                                     <%-- TABLE --%>
@@ -205,12 +206,28 @@
                                         <b>
                                             <c:out value="${t.tableNumber}" />
                                         </b>
+                                        <br>
+                                        <span class="muted" style="font-size:12px">
+                                            ID bàn: <c:out value="${t.tableId}" />
+                                        </span>
 
                                         <%-- WALK-IN GROUP LABEL --%>
                                         <c:if test="${not empty walkInGroupLabel}">
                                             <br>
                                             <span class="badge badge-warning" style="margin-top:6px">
                                                 <c:out value="${walkInGroupLabel}" />
+                                            </span>
+                                        </c:if>
+
+                                        <c:if test="${not empty reservationInfo}">
+                                            <br>
+                                            <span class="badge badge-info" style="margin-top:6px">
+                                                Reservation #<c:out value="${reservationInfo.reservationId}" />
+                                                · <c:out value="${reservationInfo.tableNumbers}" />
+                                            </span>
+                                            <br>
+                                            <span class="muted" style="font-size:12px">
+                                                Khách: <c:out value="${reservationInfo.customerName}" />
                                             </span>
                                         </c:if>
                                     </td>
@@ -270,23 +287,22 @@
                                                     <button
                                                         type="submit"
                                                         class="btn btn-sm btn-outline"
-                                                        onclick="return confirm('Chỉ trả bàn này?');">
+                                                        onclick="return confirm('Chỉ trả bàn này? Nếu đây là bàn cuối của Reservation, Reservation sẽ được hoàn tất.');">
                                                         Trả bàn này
                                                     </button>
                                                 </form>
 
                                             </c:if>
 
-                                            <%-- RELEASE WALK-IN
-                                            GROUP --%>
-                                            <c:if test="${ t.status eq 'OCCUPIED' and activeWalkInTableIds.contains( t.tableId ) }">
+                                            <%-- RELEASE WALK-IN OR RESERVATION GROUP --%>
+                                            <c:if test="${t.status eq 'OCCUPIED' and (activeWalkInTableIds.contains(t.tableId) or (not empty reservationInfo and reservationInfo.tableCount gt 1))}">
                                                 <form method="post" action="${ctx}/waiter">
                                                     <input type="hidden" name="action" value="releaseGroup">
                                                     <input type="hidden" name="id" value="${t.tableId}">
                                                     <button
                                                         type="submit"
                                                         class="btn btn-sm btn-danger"
-                                                        onclick="return confirm('Trả toàn bộ nhóm bàn walk-in?');">
+                                                        onclick="return confirm('Trả toàn bộ nhóm bàn đang gắn với bàn này?');">
                                                         Trả cả nhóm
                                                     </button>
                                                 </form>

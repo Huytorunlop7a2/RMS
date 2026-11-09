@@ -270,6 +270,10 @@
                                                             <b>
                                                                 <c:out value="${r.tableNumber}" />
                                                             </b>
+                                                            <br>
+                                                            <span class="muted" style="font-size:12px">
+                                                                ID bàn chính: #<c:out value="${r.tableId}" />
+                                                            </span>
                                                         </td>
 
                                                         <td>

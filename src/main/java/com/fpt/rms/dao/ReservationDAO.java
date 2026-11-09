@@ -1,6 +1,7 @@
 package com.fpt.rms.dao;
 
 import com.fpt.rms.model.Reservation;
+import com.fpt.rms.model.ReservationTableInfo;
 import com.fpt.rms.util.DBContext;
 
 import java.sql.Connection;
@@ -17,6 +18,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 public class ReservationDAO {
@@ -68,6 +71,49 @@ public class ReservationDAO {
         }
 
         return list;
+    }
+
+    public Map<Long, ReservationTableInfo> findCheckedInTableAssignments() throws SQLException {
+
+        Map<Long, ReservationTableInfo> assignments = new LinkedHashMap<>();
+
+        String sql = "SELECT "
+                + "current_rt.table_id, "
+                + "r.reservation_id, "
+                + "r.customer_name, "
+                + "group_info.table_numbers, "
+                + "group_info.table_count "
+                + "FROM reservations r "
+                + "JOIN reservation_tables current_rt "
+                + "ON current_rt.reservation_id = r.reservation_id "
+                + "JOIN ("
+                + "SELECT rt.reservation_id, "
+                + "STRING_AGG(t.table_number, ' + ') "
+                + "WITHIN GROUP (ORDER BY t.table_number) AS table_numbers, "
+                + "COUNT(*) AS table_count "
+                + "FROM reservation_tables rt "
+                + "JOIN restaurant_tables t ON t.table_id = rt.table_id "
+                + "GROUP BY rt.reservation_id"
+                + ") group_info ON group_info.reservation_id = r.reservation_id "
+                + "WHERE r.status = 'CHECKED_IN' "
+                + "ORDER BY r.reservation_id, current_rt.table_id";
+
+        try (Connection c = DBContext.getConnection();
+                PreparedStatement ps = c.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                ReservationTableInfo info = new ReservationTableInfo();
+                info.setTableId(rs.getLong("table_id"));
+                info.setReservationId(rs.getLong("reservation_id"));
+                info.setCustomerName(rs.getString("customer_name"));
+                info.setTableNumbers(rs.getString("table_numbers"));
+                info.setTableCount(rs.getInt("table_count"));
+                assignments.put(info.getTableId(), info);
+            }
+        }
+
+        return assignments;
     }
 
     public Reservation findById(long reservationId) throws SQLException {

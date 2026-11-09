@@ -75,13 +75,18 @@ public class ReceptionistServlet extends HttpServlet {
         if ("reservations".equals(page)) {
             loadReservationData(req);
             handleReservationSearch(req);
-        } else {
+        } else if ("walk-ins".equals(page)) {
             loadWalkInData(req);
+        } else {
+            loadTableStatusData(req);
         }
 
-        String view = "reservations".equals(page)
-                ? "/WEB-INF/views/receptionist/reservations.jsp"
-                : "/WEB-INF/views/receptionist/walk-ins.jsp";
+        String view = switch (page) {
+            case "reservations" -> "/WEB-INF/views/receptionist/reservations.jsp";
+            case "walk-ins" -> "/WEB-INF/views/receptionist/walk-ins.jsp";
+            case "table-status" -> "/WEB-INF/views/receptionist/table-status.jsp";
+            default -> throw new IllegalStateException("Trang không hợp lệ");
+        };
 
         req.getRequestDispatcher(view).forward(req, resp);
     }
@@ -181,13 +186,22 @@ public class ReceptionistServlet extends HttpServlet {
                 boolean walkInMember = walkInGroupDAO.releaseSingleTableIfMember(
                         tableId);
 
+                boolean reservationMember = false;
+
                 if (!walkInMember) {
+                    reservationMember = tableDAO.releaseSingleReservationTableIfMember(
+                            tableId);
+                }
+
+                if (!walkInMember && !reservationMember) {
                     tableDAO.releaseTable(tableId);
                 }
 
                 successMessage = walkInMember
                         ? "Đã trả riêng bàn khỏi nhóm walk-in"
-                        : "Đã trả bàn thành công";
+                        : reservationMember
+                                ? "Đã trả riêng bàn khỏi nhóm Reservation"
+                                : "Đã trả bàn thành công";
 
             } else if ("releaseGroup".equals(action)) {
 
@@ -198,11 +212,16 @@ public class ReceptionistServlet extends HttpServlet {
                         tableId);
 
                 if (!released) {
-                    throw new IllegalStateException(
-                            "Bàn này không thuộc nhóm walk-in");
+                    released = tableDAO.releaseWholeReservationGroupIfMember(
+                            tableId);
                 }
 
-                successMessage = "Đã trả toàn bộ nhóm bàn walk-in";
+                if (!released) {
+                    throw new IllegalStateException(
+                            "Bàn này không thuộc nhóm Walk-in hoặc Reservation đang sử dụng");
+                }
+
+                successMessage = "Đã trả toàn bộ nhóm bàn thành công";
 
             } else {
 
@@ -441,6 +460,10 @@ public class ReceptionistServlet extends HttpServlet {
             return "walk-ins";
         }
 
+        if ("/table-status".equals(path)) {
+            return "table-status";
+        }
+
         return null;
     }
 
@@ -454,7 +477,11 @@ public class ReceptionistServlet extends HttpServlet {
             return "/receptionist/reservations";
         }
 
-        return "/receptionist/walk-ins";
+        if ("createWalkInGroup".equals(action)) {
+            return "/receptionist/walk-ins";
+        }
+
+        return "/receptionist/table-status";
     }
 
     private void loadReservationData(HttpServletRequest req) {
@@ -547,6 +574,29 @@ public class ReceptionistServlet extends HttpServlet {
             req.setAttribute(
                     "error",
                     message(e));
+        }
+    }
+
+    private void loadTableStatusData(HttpServletRequest req) {
+
+        req.setAttribute("tables", Collections.emptyList());
+        req.setAttribute("activeWalkInTableIds", Collections.emptySet());
+        req.setAttribute("activeWalkInGroupLabels", Collections.emptyMap());
+        req.setAttribute("activeReservationTables", Collections.emptyMap());
+
+        try {
+            req.setAttribute("tables", tableDAO.findAll());
+            req.setAttribute(
+                    "activeWalkInTableIds",
+                    walkInGroupDAO.findActiveGroupTableIds());
+            req.setAttribute(
+                    "activeWalkInGroupLabels",
+                    walkInGroupDAO.findActiveGroupLabels());
+            req.setAttribute(
+                    "activeReservationTables",
+                    reservationDAO.findCheckedInTableAssignments());
+        } catch (Exception e) {
+            req.setAttribute("error", message(e));
         }
     }
 

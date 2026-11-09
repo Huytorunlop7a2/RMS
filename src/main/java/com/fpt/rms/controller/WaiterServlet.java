@@ -2,6 +2,7 @@ package com.fpt.rms.controller;
 
 import com.fpt.rms.dao.OrderDAO;
 import com.fpt.rms.dao.PaymentDAO;
+import com.fpt.rms.dao.ReservationDAO;
 import com.fpt.rms.dao.TableDAO;
 import com.fpt.rms.dao.WalkInGroupDAO;
 
@@ -21,6 +22,7 @@ import java.io.IOException;
 public class WaiterServlet extends HttpServlet {
     private final OrderDAO orderDAO = new OrderDAO();
     private final PaymentDAO paymentDAO = new PaymentDAO();
+    private final ReservationDAO reservationDAO = new ReservationDAO();
     private final TableDAO tableDAO = new TableDAO();
     private final WalkInGroupDAO walkInGroupDAO = new WalkInGroupDAO();
 
@@ -32,6 +34,7 @@ public class WaiterServlet extends HttpServlet {
             req.setAttribute("tables", tableDAO.findAll());
             req.setAttribute("activeWalkInTableIds", walkInGroupDAO.findActiveGroupTableIds());
             req.setAttribute("activeWalkInGroupLabels", walkInGroupDAO.findActiveGroupLabels());
+            req.setAttribute("activeReservationTables", reservationDAO.findCheckedInTableAssignments());
             consumeFlash(req);
             req.getRequestDispatcher("/WEB-INF/views/waiter/dashboard.jsp").forward(req, resp);
         } catch (Exception e) {
@@ -62,17 +65,29 @@ public class WaiterServlet extends HttpServlet {
             } else if ("releaseOne".equals(action) || "release".equals(action)) {
                 long tableId = Long.parseLong(req.getParameter("id"));
                 boolean walkInMember = walkInGroupDAO.releaseSingleTableIfMember(tableId);
+                boolean reservationMember = false;
                 if (!walkInMember) {
+                    reservationMember = tableDAO.releaseSingleReservationTableIfMember(tableId);
+                }
+                if (!walkInMember && !reservationMember) {
                     tableDAO.releaseTable(tableId);
                 }
-                successMessage = walkInMember ? "Đã trả riêng bàn khỏi nhóm walk-in" : "Đã trả bàn thành công";
+                successMessage = walkInMember
+                        ? "Đã trả riêng bàn khỏi nhóm walk-in"
+                        : reservationMember
+                                ? "Đã trả riêng bàn khỏi nhóm Reservation"
+                                : "Đã trả bàn thành công";
             } else if ("releaseGroup".equals(action)) {
                 long tableId = Long.parseLong(req.getParameter("id"));
                 boolean released = walkInGroupDAO.releaseWholeGroupIfMember(tableId);
                 if (!released) {
-                    throw new IllegalStateException("Bàn này không thuộc nhóm walk-in");
+                    released = tableDAO.releaseWholeReservationGroupIfMember(tableId);
                 }
-                successMessage = "Đã trả toàn bộ nhóm bàn walk-in";
+                if (!released) {
+                    throw new IllegalStateException(
+                            "Bàn này không thuộc nhóm Walk-in hoặc Reservation đang sử dụng");
+                }
+                successMessage = "Đã trả toàn bộ nhóm bàn thành công";
             } else {
                 throw new IllegalArgumentException("Thao tác của phục vụ không hợp lệ");
             }

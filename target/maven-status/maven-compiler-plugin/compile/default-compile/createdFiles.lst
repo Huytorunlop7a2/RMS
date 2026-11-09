@@ -10,6 +10,7 @@ com\fpt\rms\dao\OpeningHourDAO.class
 com\fpt\rms\dao\OrderDAO.class
 com\fpt\rms\model\RestaurantTable.class
 com\fpt\rms\model\InventoryItem.class
+com\fpt\rms\dao\TableDAO$ReservationAssignment.class
 com\fpt\rms\model\TableAdjacencyOverride.class
 com\fpt\rms\controller\ManagerMenuServlet.class
 com\fpt\rms\dao\OrderDAO$PreparedRequestedItem.class
@@ -26,6 +27,7 @@ com\fpt\rms\controller\CustomerServlet.class
 com\fpt\rms\dao\OrderDAO$RequestedItem.class
 com\fpt\rms\dao\TableLayoutDAO.class
 com\fpt\rms\controller\ManagerOpeningHoursServlet.class
+com\fpt\rms\dao\TableDAO$ReservationTableMember.class
 com\fpt\rms\model\OpeningHour.class
 com\fpt\rms\dao\ReservationDAO.class
 com\fpt\rms\model\MenuItem.class
@@ -39,3 +41,4 @@ com\fpt\rms\dao\WalkInGroupDAO$GroupInfo.class
 com\fpt\rms\model\MenuCategory.class
 com\fpt\rms\dao\InventoryDAO.class
 com\fpt\rms\model\Payment.class
+com\fpt\rms\model\ReservationTableInfo.class
