@@ -13,19 +13,163 @@ import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.Set;
 
 @WebServlet("/manager/inventory")
 public class ManagerInventoryServlet extends HttpServlet {
     private final InventoryDAO dao = new InventoryDAO();
 
+    // @Override
+    // protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws
+    // ServletException, IOException {
+    // try {
+    // req.setAttribute("inventory", dao.findAll());
+    // consumeFlash(req);
+    // req.getRequestDispatcher("/WEB-INF/views/manager/inventory.jsp").forward(req,
+    // resp);
+    // } catch (Exception e) {
+    // throw new ServletException(e);
+    // }
+    // }
+
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    protected void doGet(
+            HttpServletRequest req,
+            HttpServletResponse resp)
+            throws ServletException, IOException {
+
         try {
+            String tab = req.getParameter("tab");
+            String fromText = req.getParameter("fromDate");
+            String toText = req.getParameter("toDate");
+            String type = req.getParameter("type");
+            String keyword = req.getParameter("keyword");
+
+            LocalDate fromDate = parseDate(fromText);
+            LocalDate toDate = parseDate(toText);
+
+            if (fromDate != null && toDate != null
+                    && fromDate.isAfter(toDate)) {
+                throw new IllegalArgumentException(
+                        "Ngày bắt đầu không được sau ngày kết thúc");
+            }
+
+            Set<String> validTypes = Set.of(
+                    "RESTOCK",
+                    "WASTE_LOSS",
+                    "ADJUSTMENT",
+                    "USAGE");
+
+            if (type == null || type.isBlank()) {
+                type = "";
+            } else if (!validTypes.contains(type)) {
+                throw new IllegalArgumentException(
+                        "Loại giao dịch không hợp lệ");
+            }
+
+            if (keyword == null) {
+                keyword = "";
+            }
+            keyword = keyword.trim();
+
+            if (keyword.length() > 100) {
+                throw new IllegalArgumentException(
+                        "Từ khóa tìm kiếm tối đa 100 ký tự");
+            }
+
+            int pageSize = parseInt(req.getParameter("pageSize"), 20);
+            if (pageSize != 20 && pageSize != 50 && pageSize != 80) {
+                pageSize = 20;
+            }
+
+            int page = parseInt(req.getParameter("page"), 1);
+            if (page < 1) {
+                page = 1;
+            }
+
+            long totalTransactions = dao.countTransactions(
+                    fromDate, toDate, type, keyword);
+
+            long totalPages = Math.max(
+                    1L,
+                    (totalTransactions + pageSize - 1) / pageSize);
+
+            if (page > totalPages) {
+                page = (int) Math.min(totalPages, Integer.MAX_VALUE);
+            }
+
             req.setAttribute("inventory", dao.findAll());
+
+            req.setAttribute("transactions", dao.findTransactions(
+                    fromDate, toDate, type, keyword, page, pageSize));
+
+            req.setAttribute("totalTransactions", totalTransactions);
+            req.setAttribute("totalPages", totalPages);
+            req.setAttribute("currentPage", page);
+            req.setAttribute("pageSize", pageSize);
+
+            req.setAttribute("fromDate", fromText);
+            req.setAttribute("toDate", toText);
+            req.setAttribute("selectedType", type);
+            req.setAttribute("keyword", keyword);
+
+            req.setAttribute(
+                    "activeTab",
+                    "history".equals(tab) ? "history" : "inventory");
+
+            String detailId = req.getParameter("detailId");
+
+            if (detailId != null && !detailId.isBlank()) {
+                long id = Long.parseLong(detailId);
+
+                if (id <= 0) {
+                    throw new IllegalArgumentException(
+                            "Mã giao dịch không hợp lệ");
+                }
+
+                req.setAttribute(
+                        "transactionDetail",
+                        dao.findTransactionById(id));
+            }
+
             consumeFlash(req);
-            req.getRequestDispatcher("/WEB-INF/views/manager/inventory.jsp").forward(req, resp);
+
+            req.getRequestDispatcher(
+                    "/WEB-INF/views/manager/inventory.jsp").forward(req, resp);
+
+        } catch (IllegalArgumentException e) {
+            resp.sendError(
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    e.getMessage());
         } catch (Exception e) {
             throw new ServletException(e);
+        }
+    }
+
+    private LocalDate parseDate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return LocalDate.parse(value);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                    "Ngày lọc không hợp lệ", e);
+        }
+    }
+
+    private int parseInt(String value, int fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return fallback;
         }
     }
 
@@ -79,10 +223,10 @@ public class ManagerInventoryServlet extends HttpServlet {
                         staff.getStaffId());
             } else if ("adjust".equals(action)) {
                 dao.adjust(Long.parseLong(req.getParameter("id")), new BigDecimal(req.getParameter("actualQuantity")),
-                        normalizeNote(req.getParameter("note")), staff.getStaffId());
+                        requiredReason(req.getParameter("note")), staff.getStaffId());
             } else if ("waste".equals(action)) {
                 dao.waste(Long.parseLong(req.getParameter("id")), new BigDecimal(req.getParameter("quantity")),
-                        normalizeNote(req.getParameter("note")), staff.getStaffId());
+                        requiredReason(req.getParameter("note")), staff.getStaffId());
             } else if ("threshold".equals(action)) {
                 dao.setThreshold(Long.parseLong(req.getParameter("id")), new BigDecimal(req.getParameter("threshold")));
             } else {
@@ -131,5 +275,16 @@ public class ManagerInventoryServlet extends HttpServlet {
             value = e.getMessage();
         }
         return value == null || value.isBlank() ? "Không thể cập nhật kho" : value;
+    }
+
+    private String requiredReason(String value) {
+        String reason = normalizeNote(value);
+
+        if (reason == null) {
+            throw new IllegalArgumentException(
+                    "Vui lòng nhập lý do điều chỉnh hoặc hao hụt");
+        }
+
+        return reason;
     }
 }
