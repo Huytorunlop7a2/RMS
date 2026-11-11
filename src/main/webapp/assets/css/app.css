@@ -2901,3 +2901,614 @@ input[type="radio"] {
     }
 }
 
+
+/* ============================================
+   MANAGER INVENTORY - MAU A
+   ============================================ */
+
+.inv-app {
+    --inv-orange: #f97316;
+    --inv-orange-dark: #ea580c;
+    --inv-text: #1e293b;
+    --inv-muted: #64748b;
+    --inv-border: #e2e8f0;
+}
+
+.inv-app .container {
+    max-width: 1460px;
+    padding-top: 26px;
+}
+
+/* HEADER */
+
+.inv-app .inv-page-head {
+    margin-bottom: 22px;
+}
+
+.inv-app .inv-page-head h1 {
+    margin: 0 0 7px;
+    font-size: 29px;
+    font-weight: 800;
+    color: var(--inv-text);
+}
+
+.inv-app .inv-page-head p {
+    margin: 0;
+    font-size: 13px;
+}
+
+/* SIDEBAR */
+
+.inv-app .sidebar .inv-nav-active {
+    color: var(--inv-orange);
+    font-weight: 750;
+}
+
+/* STATISTICS */
+
+.inv-app .inv-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.inv-app .inv-stat {
+    padding: 19px 20px;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 110px;
+}
+
+.inv-app .inv-stat span {
+    font-size: 12px;
+    font-weight: 650;
+    color: var(--inv-muted);
+}
+
+.inv-app .inv-stat strong {
+    font-size: 29px;
+    font-weight: 800;
+    line-height: 1.25;
+    color: var(--inv-text);
+}
+
+.inv-app .inv-stat small {
+    color: #94a3b8;
+    font-size: 11px;
+}
+
+/* MAIN SURFACE */
+
+.inv-app .inv-surface {
+    background: #fff;
+    border: 1px solid var(--inv-border);
+    border-radius: 15px;
+    overflow: hidden;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.035);
+}
+
+/* TABS */
+
+.inv-app .inv-tabs {
+    display: flex;
+    align-items: center;
+    gap: 26px;
+    padding: 0 22px;
+    border-bottom: 1px solid var(--inv-border);
+}
+
+.inv-app .inv-tab {
+    display: inline-block;
+    padding: 16px 0 14px;
+    position: relative;
+    font-weight: 700;
+    font-size: 13px;
+    color: #718096;
+    text-decoration: none;
+}
+
+.inv-app .inv-tab:hover,
+.inv-app .inv-tab.active {
+    color: var(--inv-orange-dark);
+}
+
+.inv-app .inv-tab.active::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--inv-orange);
+    border-radius: 3px 3px 0 0;
+}
+
+/* TOOLBAR */
+
+.inv-app .inv-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 18px 20px;
+}
+
+.inv-app .inv-field {
+    min-width: 0;
+    height: 42px;
+    padding: 0 12px;
+    background: #fff;
+    color: var(--inv-text);
+    font-size: 13px;
+    font-family: inherit;
+    border: 1px solid #d5dce6;
+    border-radius: 10px;
+}
+
+.inv-app .inv-field:focus {
+    outline: 2px solid rgba(249, 115, 22, 0.18);
+    border-color: var(--inv-orange);
+}
+
+.inv-app .inv-search {
+    flex: 1 1 220px;
+}
+
+.inv-app .inv-select {
+    width: 165px;
+}
+
+.inv-app .inv-toolbar .btn {
+    min-height: 42px;
+    padding: 9px 14px;
+    white-space: nowrap;
+    font-size: 12px;
+    border-radius: 10px;
+}
+
+.inv-app .btn-primary {
+    background: var(--inv-orange);
+    border-color: var(--inv-orange);
+}
+
+.inv-app .btn-primary:hover {
+    background: var(--inv-orange-dark);
+    border-color: var(--inv-orange-dark);
+}
+
+.inv-app .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* TABLE */
+
+.inv-app .inv-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.inv-app .inv-table {
+    width: 100%;
+    min-width: 970px;
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.inv-app .inv-table th {
+    padding: 14px 13px;
+    text-align: left;
+    background: #f8fafc;
+    border-top: 1px solid #edf0f4;
+    border-bottom: 1px solid var(--inv-border);
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.inv-app .inv-table td {
+    padding: 15px 13px;
+    border-bottom: 1px solid #edf0f4;
+    vertical-align: middle;
+    color: #475569;
+    font-size: 12px;
+}
+
+.inv-app .inv-table tbody tr:hover {
+    background: #fffaf6;
+}
+
+.inv-app .inv-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.inv-app .inv-row[hidden],
+.inv-app #invNoResults[hidden] {
+    display: none !important;
+}
+
+.inv-app .inv-name {
+    color: #1e293b;
+    font-weight: 750;
+    font-size: 13px;
+}
+
+.inv-app .inv-sub {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.inv-app .inv-nowrap {
+    white-space: nowrap;
+}
+
+.inv-app .inv-action {
+    display: inline-block;
+    border: none;
+    background: none;
+    padding: 4px 5px;
+    color: var(--inv-orange-dark);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.inv-app .inv-action:hover {
+    text-decoration: underline;
+}
+
+/* STATUS */
+
+.inv-app .inv-badge {
+    display: inline-block;
+    padding: 5px 9px;
+    font-size: 11px;
+    font-weight: 750;
+    border-radius: 7px;
+    white-space: nowrap;
+}
+
+.inv-app .inv-badge.normal {
+    color: #15803d;
+    background: #dcfce7;
+}
+
+.inv-app .inv-badge.low {
+    color: #a16207;
+    background: #fef3c7;
+}
+
+.inv-app .inv-badge.out {
+    color: #b91c1c;
+    background: #fee2e2;
+}
+
+.inv-app .inv-badge.inactive {
+    color: #64748b;
+    background: #e2e8f0;
+}
+
+.inv-app .inv-badge.usage {
+    color: #1d4ed8;
+    background: #dbeafe;
+}
+
+/* TABLE FOOTER */
+
+.inv-app .inv-table-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--inv-border);
+    font-size: 12px;
+    color: #64748b;
+}
+
+.inv-app .inv-pagination {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.inv-app .inv-pagination .btn {
+    font-size: 12px;
+}
+
+/* HISTORY */
+
+.inv-app .inv-history-heading {
+    padding: 22px 22px 5px;
+}
+
+.inv-app .inv-history-heading h2 {
+    margin: 0 0 6px;
+    font-size: 19px;
+}
+
+.inv-app .inv-history-heading p {
+    margin: 0;
+    font-size: 12px;
+}
+
+.inv-app .inv-history-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 18px 22px 20px;
+}
+
+.inv-app .inv-history-field {
+    flex: 1 1 140px;
+    min-width: 130px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.inv-app .inv-history-field label {
+    font-size: 12px;
+    font-weight: 650;
+    color: #475569;
+}
+
+.inv-app .inv-history-field .inv-field {
+    width: 100%;
+}
+
+.inv-app .inv-page-size {
+    flex: 0 0 110px;
+    min-width: 100px;
+}
+
+.inv-app .inv-history-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.inv-app .inv-history-buttons .btn {
+    min-height: 42px;
+    font-size: 12px;
+}
+
+.inv-app .inv-history-table {
+    min-width: 1040px;
+}
+
+.inv-app .inv-history-note {
+    max-width: 250px;
+    overflow-wrap: anywhere;
+}
+
+.inv-app .inv-empty {
+    text-align: center !important;
+    color: #94a3b8;
+    padding: 28px !important;
+}
+
+.inv-app .inventory-qty-positive {
+    color: #15803d;
+}
+
+.inv-app .inventory-qty-negative {
+    color: #dc2626;
+}
+
+/* MODALS */
+
+.inv-app dialog.inv-modal {
+    width: min(94vw, 540px);
+    max-height: calc(100vh - 44px);
+    margin: auto;
+    padding: 24px;
+    background: #fff;
+    color: var(--inv-text);
+    border: 1px solid var(--inv-border);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
+    overflow-y: auto;
+}
+
+.inv-app dialog.inv-modal:not([open]) {
+    display: none;
+}
+
+.inv-app dialog.inv-modal::backdrop {
+    background: rgba(15, 23, 42, 0.58);
+}
+
+.inv-app .inv-modal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.inv-app .inv-modal-head h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 750;
+}
+
+.inv-app .inv-modal-close {
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    padding: 0 5px;
+    font-size: 27px;
+    line-height: 1;
+}
+
+.inv-app .inv-modal .form-group {
+    margin-bottom: 16px;
+}
+
+.inv-app .inv-modal .form-group label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.inv-app .inv-modal .form-group input,
+.inv-app .inv-modal .form-group select {
+    width: 100%;
+}
+
+.inv-app .inv-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid var(--inv-border);
+}
+
+.inv-app .inv-stock-hint {
+    margin: -6px 0 14px;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.inv-app .inv-stock-hint:empty {
+    display: none;
+}
+
+/* TRANSACTION DETAIL - GIU NGUYEN MODAL CU */
+
+.inv-app .inventory-detail-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.6);
+}
+
+.inv-app .inventory-detail-dialog {
+    width: min(100%, 620px);
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 24px;
+    border-radius: 16px;
+}
+
+.inv-app .inventory-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.inv-app .inventory-detail-header h2 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.inv-app .inventory-detail-close {
+    color: #64748b;
+    text-decoration: none;
+    font-size: 27px;
+}
+
+.inv-app .inventory-detail-fields {
+    display: grid;
+    grid-template-columns: 155px 1fr;
+    gap: 10px 15px;
+}
+
+.inv-app .inventory-detail-fields dt {
+    color: #64748b;
+}
+
+.inv-app .inventory-detail-fields dd {
+    margin: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.inv-app .inventory-detail-reason {
+    padding: 14px;
+    background: #f8fafc;
+    border-radius: 10px;
+}
+
+.inv-app .inventory-detail-reason p {
+    margin: 8px 0 0;
+}
+
+.inv-app .inventory-detail-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1100px) {
+    .inv-app .inv-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 650px) {
+    .inv-app .inv-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .inv-app .inv-tabs {
+        gap: 16px;
+        padding: 0 14px;
+    }
+
+    .inv-app .inv-tab {
+        font-size: 12px;
+    }
+
+    .inv-app .inv-toolbar {
+        padding: 14px;
+    }
+
+    .inv-app .inv-search,
+    .inv-app .inv-select {
+        width: 100%;
+        flex-basis: 100%;
+    }
+
+    .inv-app .inv-history-filter {
+        padding: 14px;
+    }
+
+    .inv-app .inv-history-field,
+    .inv-app .inv-page-size {
+        flex: 1 1 100%;
+    }
+
+    .inv-app .inv-modal .grid-2 {
+        grid-template-columns: 1fr;
+    }
+
+    .inv-app .inventory-detail-fields {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+}
+
