@@ -32,6 +32,7 @@ com\fpt\rms\dao\ReservationListDAO.class
 com\fpt\rms\model\OpeningHour.class
 com\fpt\rms\dao\ReservationDAO.class
 com\fpt\rms\model\MenuItem.class
+com\fpt\rms\model\DishGroup.class
 com\fpt\rms\controller\ManagerTableServlet.class
 com\fpt\rms\dao\MenuDAO.class
 com\fpt\rms\model\RecipeIngredient.class
@@ -40,7 +41,6 @@ com\fpt\rms\model\Reservation.class
 com\fpt\rms\controller\WaiterServlet.class
 com\fpt\rms\dao\WalkInGroupDAO$GroupInfo.class
 com\fpt\rms\model\MenuCategory.class
-com\fpt\rms\controller\KitchenServlet$DishGroup.class
 com\fpt\rms\dao\InventoryDAO.class
 com\fpt\rms\model\Payment.class
 com\fpt\rms\model\ReservationTableInfo.class

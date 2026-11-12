@@ -19,20 +19,8 @@ import java.util.Set;
 
 @WebServlet("/manager/inventory")
 public class ManagerInventoryServlet extends HttpServlet {
-    private final InventoryDAO dao = new InventoryDAO();
 
-    // @Override
-    // protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws
-    // ServletException, IOException {
-    // try {
-    // req.setAttribute("inventory", dao.findAll());
-    // consumeFlash(req);
-    // req.getRequestDispatcher("/WEB-INF/views/manager/inventory.jsp").forward(req,
-    // resp);
-    // } catch (Exception e) {
-    // throw new ServletException(e);
-    // }
-    // }
+    private final InventoryDAO dao = new InventoryDAO();
 
     @Override
     protected void doGet(

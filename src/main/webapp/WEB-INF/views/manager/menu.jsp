@@ -320,9 +320,6 @@
                             </main>
                         </div>
 
-                        <!-- =========================================
-     MODAL CREATE ITEM
-     ========================================= -->
                         <dialog id="menu-create" class="menu-modal">
 
                             <div class="menu-modal-head">
@@ -390,9 +387,7 @@
                             </form>
                         </dialog>
 
-                        <!-- =========================================
-     MODALS FOR EACH MENU ITEM
-     ========================================= -->
+                        <!-- EDIT ITEM MODAL & RECIPE MODAL -->
                         <c:forEach var="m" items="${items}">
 
                             <!-- EDIT ITEM MODAL -->
@@ -713,8 +708,7 @@
                             </dialog>
 
                         </c:forEach>
-
-                        <!-- JAVASCRIPT RIENG CHO MAN HINH MENU -->
+                        
                         <script>
                             document.addEventListener("DOMContentLoaded", function () {
 

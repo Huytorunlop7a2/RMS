@@ -3,6 +3,7 @@ package com.fpt.rms.controller;
 import com.fpt.rms.dao.InventoryDAO;
 import com.fpt.rms.dao.OrderDAO;
 
+import com.fpt.rms.model.DishGroup;
 import com.fpt.rms.model.Staff;
 import com.fpt.rms.model.OrderDetail;
 import com.fpt.rms.model.RestaurantOrder;
@@ -120,45 +121,6 @@ public class KitchenServlet extends HttpServlet {
             value = e.getMessage();
         }
         return value == null || value.isBlank() ? "Không thể xử lý món ăn" : value;
-    }
-
-    public static class DishGroup {
-        private final long menuItemId;
-        private final String menuItemName;
-        private final String categoryName;
-        private final List<OrderDetail> details = new ArrayList<>();
-        private int totalQuantity;
-
-        public DishGroup(OrderDetail d) {
-            this.menuItemId = d.getMenuItemId();
-            this.menuItemName = d.getMenuItemName();
-            this.categoryName = d.getCategoryName();
-        }
-
-        public void addDetail(OrderDetail d) {
-            details.add(d);
-            totalQuantity += d.getQuantity();
-        }
-
-        public long getMenuItemId() {
-            return menuItemId;
-        }
-
-        public String getMenuItemName() {
-            return menuItemName;
-        }
-
-        public String getCategoryName() {
-            return categoryName;
-        }
-
-        public List<OrderDetail> getDetails() {
-            return details;
-        }
-
-        public int getTotalQuantity() {
-            return totalQuantity;
-        }
     }
 
     private List<DishGroup> buildDishGroups(
