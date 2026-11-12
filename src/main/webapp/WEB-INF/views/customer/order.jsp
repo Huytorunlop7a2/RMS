@@ -7,9 +7,6 @@
                 <c:url var="menuUrl" value="/customer/menu">
                     <c:param name="token" value="${token}" />
                 </c:url>
-                <c:url var="paymentUrl" value="/customer/payment">
-                    <c:param name="token" value="${token}" />
-                </c:url>
                 <!doctype html>
                 <html lang="vi">
 
@@ -52,15 +49,7 @@
                             </c:if>
                             <div class="page-head">
                                 <h1>Đơn hiện tại</h1>
-                                <c:choose>
-                                    <c:when test="${paymentPending}">
-                                        <button type="button" class="btn btn-outline" disabled>Đang chờ thanh
-                                            toán</button>
-                                    </c:when>
-                                    <c:otherwise>
-                                        <a class="btn btn-outline" href="${fn:escapeXml(menuUrl)}">Gọi thêm món</a>
-                                    </c:otherwise>
-                                </c:choose>
+                                <a class="btn btn-outline" href="${fn:escapeXml(menuUrl)}">Gọi thêm món</a>
                             </div>
                             <c:if test="${paymentPending}">
                                 <div class="alert alert-danger">
@@ -128,7 +117,8 @@
                                                             </c:choose>
                                                         </div>
                                                         <div class="muted">
-                                                            Ngày đặt: <c:out value="${d.formattedCreatedAt}"/>
+                                                            Ngày đặt:
+                                                            <c:out value="${d.formattedCreatedAt}" />
                                                         </div>
                                                     </div>
                                                     <div class="right">
@@ -137,7 +127,7 @@
                                                                 maxFractionDigits="0" />
                                                             ₫
                                                         </b>
-                                                        <c:if test="${d.status eq 'PENDING' and !paymentPending}">
+                                                        <c:if test="${d.status eq 'PENDING'}">
                                                             <form method="post" action="${ctx}/customer/cancel"
                                                                 style="margin-top:6px">
                                                                 <input type="hidden" name="token"
@@ -152,34 +142,7 @@
                                                 </div>
                                             </div>
                                         </c:forEach>
-                                        <div class="right" style="margin-top:18px">
-                                            <div class="muted">Tổng tạm tính</div>
-                                            <div class="stat">
-                                                <fmt:formatNumber value="${total}" type="number"
-                                                    maxFractionDigits="0" />
-                                                ₫
-                                            </div>
-                                        </div>
                                     </div>
-                                    <c:choose>
-                                        <c:when test="${paymentPending}">
-                                            <a class="btn btn-primary" style="width:100%"
-                                                href="${fn:escapeXml(paymentUrl)}">
-                                                Xem trạng thái thanh toán
-                                            </a>
-                                        </c:when>
-                                        <c:when test="${canPay}">
-                                            <a class="btn btn-primary" style="width:100%"
-                                                href="${fn:escapeXml(paymentUrl)}">
-                                                Thanh toán
-                                            </a>
-                                        </c:when>
-                                        <c:otherwise>
-                                            <div class="alert alert-danger">
-                                                Chỉ có thể thanh toán sau khi tất cả món đã được phục vụ.
-                                            </div>
-                                        </c:otherwise>
-                                    </c:choose>
                                 </c:otherwise>
                             </c:choose>
                         </div>

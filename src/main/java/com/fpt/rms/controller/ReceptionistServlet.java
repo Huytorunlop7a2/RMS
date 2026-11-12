@@ -8,6 +8,7 @@ import com.fpt.rms.model.Reservation;
 import com.fpt.rms.model.Staff;
 import com.fpt.rms.model.TableCandidate;
 import com.fpt.rms.service.ReservationService;
+import com.fpt.rms.dao.OrderDAO;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -28,6 +29,12 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.fpt.rms.dao.PaymentDAO;
+
+import com.fpt.rms.model.Payment;
+import com.fpt.rms.model.RestaurantOrder;
+import com.fpt.rms.model.RestaurantTable;
+
 @WebServlet(urlPatterns = { "/receptionist", "/receptionist/*" })
 public class ReceptionistServlet extends HttpServlet {
 
@@ -35,6 +42,8 @@ public class ReceptionistServlet extends HttpServlet {
         private final TableDAO tableDAO = new TableDAO();
         private final ReservationService reservationService = new ReservationService();
         private final WalkInGroupDAO walkInGroupDAO = new WalkInGroupDAO();
+        private final OrderDAO orderDAO = new OrderDAO();
+        private final PaymentDAO paymentDAO = new PaymentDAO();
 
         @Override
         protected void doGet(
@@ -46,6 +55,23 @@ public class ReceptionistServlet extends HttpServlet {
                 consumeFlash(req);
 
                 String path = req.getPathInfo();
+                if ("/payment".equals(path)) {
+                        try {
+                                Staff staff = (Staff) req.getSession().getAttribute("staff");
+
+                                if (staff == null) {
+                                        resp.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                                        return;
+                                }
+
+                                showReceptionPayment(req, resp);
+
+                        } catch (Exception e) {
+                                throw new ServletException(e);
+                        }
+
+                        return;
+                }
 
                 if ("/reservations/edit".equals(path)) {
 
@@ -106,6 +132,7 @@ public class ReceptionistServlet extends HttpServlet {
                 };
 
                 req.getRequestDispatcher(view).forward(req, resp);
+
         }
 
         @Override
@@ -114,6 +141,12 @@ public class ReceptionistServlet extends HttpServlet {
                         HttpServletResponse resp) throws IOException {
 
                 req.setCharacterEncoding("UTF-8");
+                String path = req.getPathInfo();
+
+                if (path != null && path.startsWith("/payment/")) {
+                        handlePaymentPost(req, resp, path);
+                        return;
+                }
 
                 String action = req.getParameter("action");
 
@@ -267,6 +300,218 @@ public class ReceptionistServlet extends HttpServlet {
 
                 resp.sendRedirect(
                                 req.getContextPath() + redirectPath);
+        }
+
+        private void handlePaymentPost(
+                        HttpServletRequest req,
+                        HttpServletResponse resp,
+                        String path) throws IOException {
+
+                String token = req.getParameter("token");
+
+                try {
+                        Staff staff = (Staff) req.getSession().getAttribute("staff");
+
+                        if (staff == null) {
+                                throw new IllegalStateException("Phiên đăng nhập đã hết hạn");
+                        }
+
+                        if (token == null || token.isBlank()) {
+                                throw new IllegalArgumentException("Thiếu mã QR bàn");
+                        }
+
+                        token = token.trim();
+
+                        RestaurantTable table = tableDAO.findByToken(token);
+
+                        if (table == null) {
+                                throw new IllegalArgumentException("Mã QR bàn không hợp lệ");
+                        }
+
+                        String serviceToken = walkInGroupDAO.resolveServiceToken(token);
+
+                        long paymentId;
+
+                        if ("/payment/cash".equals(path)
+                                        || "/payment/online".equals(path)) {
+
+                                RestaurantOrder order = orderDAO.findOpenOrderByToken(serviceToken);
+
+                                if (order == null) {
+                                        throw new IllegalStateException("Không có đơn hàng đang mở");
+                                }
+
+                                if (!orderDAO.canPay(order.getOrderId())) {
+                                        throw new IllegalStateException(
+                                                        "Vẫn còn món chưa được phục vụ");
+                                }
+
+                                String method = "/payment/cash".equals(path)
+                                                ? "CASH"
+                                                : "ONLINE";
+
+                                paymentId = paymentDAO.createPending(
+                                                order.getOrderId(),
+                                                method);
+
+                                req.getSession().setAttribute(
+                                                "flashSuccess",
+                                                "Đã tạo yêu cầu thanh toán thành công");
+
+                        } else {
+
+                                paymentId = Long.parseLong(
+                                                req.getParameter("paymentId"));
+
+                                if (!paymentDAO.belongsToToken(paymentId, serviceToken)) {
+                                        throw new IllegalArgumentException(
+                                                        "Thanh toán không thuộc bàn này");
+                                }
+
+                                Payment payment = paymentDAO.findById(paymentId);
+
+                                if (payment == null) {
+                                        throw new IllegalArgumentException(
+                                                        "Không tìm thấy giao dịch");
+                                }
+
+                                if ("/payment/cash-confirm".equals(path)) {
+
+                                        if (!"CASH".equals(payment.getPaymentMethod())) {
+                                                throw new IllegalStateException(
+                                                                "Đây không phải thanh toán tiền mặt");
+                                        }
+
+                                        paymentDAO.confirmCash(paymentId);
+
+                                        req.getSession().setAttribute(
+                                                        "flashSuccess",
+                                                        "Đã xác nhận nhận tiền thành công");
+
+                                } else if ("/payment/online-success".equals(path)) {
+
+                                        paymentDAO.confirmOnline(paymentId);
+
+                                        req.getSession().setAttribute(
+                                                        "flashSuccess",
+                                                        "Thanh toán trực tuyến thành công");
+
+                                } else if ("/payment/online-fail".equals(path)) {
+
+                                        paymentDAO.failOnline(paymentId);
+
+                                        req.getSession().setAttribute(
+                                                        "flashError",
+                                                        "Giao dịch thanh toán thất bại");
+
+                                } else {
+                                        throw new IllegalArgumentException(
+                                                        "Đường dẫn thanh toán không hợp lệ");
+                                }
+                        }
+
+                        String redirectUrl = req.getContextPath()
+                                        + "/receptionist/payment?token="
+                                        + URLEncoder.encode(token, StandardCharsets.UTF_8)
+                                        + "&paymentId=" + paymentId;
+
+                        resp.sendRedirect(redirectUrl);
+                        return;
+
+                } catch (Exception e) {
+
+                        req.getSession().setAttribute(
+                                        "flashError",
+                                        message(e));
+
+                        String redirectUrl = req.getContextPath()
+                                        + "/receptionist/payment?token="
+                                        + URLEncoder.encode(
+                                                        token == null ? "" : token,
+                                                        StandardCharsets.UTF_8);
+
+                        resp.sendRedirect(redirectUrl);
+                }
+        }
+
+        private void showReceptionPayment(
+                        HttpServletRequest req,
+                        HttpServletResponse resp) throws Exception {
+
+                String token = req.getParameter("token");
+
+                if (token == null || token.isBlank()) {
+                        throw new IllegalArgumentException("Thiếu mã QR bàn");
+                }
+
+                token = token.trim();
+
+                RestaurantTable table = tableDAO.findByToken(token);
+
+                if (table == null) {
+                        throw new IllegalArgumentException("Mã QR bàn không hợp lệ");
+                }
+
+                String serviceToken = walkInGroupDAO.resolveServiceToken(token);
+
+                req.setAttribute("table", table);
+                req.setAttribute("token", token);
+
+                String paymentIdValue = req.getParameter("paymentId");
+                Payment selectedPayment = null;
+
+                if (paymentIdValue != null && !paymentIdValue.isBlank()) {
+                        long paymentId = Long.parseLong(paymentIdValue);
+
+                        selectedPayment = paymentDAO.findById(paymentId);
+
+                        if (selectedPayment != null
+                                        && !paymentDAO.belongsToToken(paymentId, serviceToken)) {
+                                selectedPayment = null;
+                        }
+                }
+
+                if (selectedPayment != null
+                                && "PAID".equals(selectedPayment.getPaymentStatus())) {
+
+                        req.setAttribute("paidSuccess", true);
+                        req.setAttribute("paidPayment", selectedPayment);
+
+                        req.getRequestDispatcher(
+                                        "/WEB-INF/views/receptionist/payment.jsp")
+                                        .forward(req, resp);
+
+                        return;
+                }
+
+                RestaurantOrder order = orderDAO.findOpenOrderByToken(serviceToken);
+
+                if (order == null) {
+                        req.setAttribute("noOpenOrder", true);
+
+                        req.getRequestDispatcher(
+                                        "/WEB-INF/views/receptionist/payment.jsp")
+                                        .forward(req, resp);
+
+                        return;
+                }
+
+                req.setAttribute("order", order);
+                req.setAttribute("total", orderDAO.total(order.getOrderId()));
+                req.setAttribute("canPay", orderDAO.canPay(order.getOrderId()));
+
+                if (selectedPayment == null
+                                || selectedPayment.getOrderId() != order.getOrderId()
+                                || !"PENDING".equals(selectedPayment.getPaymentStatus())) {
+
+                        selectedPayment = paymentDAO.findPendingByOrder(order.getOrderId());
+                }
+
+                req.setAttribute("pendingPayment", selectedPayment);
+
+                req.getRequestDispatcher(
+                                "/WEB-INF/views/receptionist/payment.jsp")
+                                .forward(req, resp);
         }
 
         private Reservation prepareReservation(
@@ -727,6 +972,7 @@ public class ReceptionistServlet extends HttpServlet {
                 req.setAttribute("activeWalkInTableIds", Collections.emptySet());
                 req.setAttribute("activeWalkInGroupLabels", Collections.emptyMap());
                 req.setAttribute("activeReservationTables", Collections.emptyMap());
+                req.setAttribute("servedTableIds", Collections.emptySet());
 
                 try {
 
@@ -743,7 +989,9 @@ public class ReceptionistServlet extends HttpServlet {
                         req.setAttribute(
                                         "activeReservationTables",
                                         reservationDAO.findCheckedInTableAssignments());
-
+                        req.setAttribute(
+                                        "servedTableIds",
+                                        orderDAO.findPayableOpenOrderTableIds());
                 } catch (Exception e) {
 
                         req.setAttribute("error", message(e));

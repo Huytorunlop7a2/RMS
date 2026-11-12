@@ -83,45 +83,6 @@
                 </div>
             </section>
 
-            <%--=====================================================2.
-            CASH=====================================================--%>
-
-            <section class="section">
-                <h2>2. Thanh toán tiền mặt chờ xác nhận</h2>
-                <c:if test="${empty cashPayments}">
-                    <div class="card empty">Không có yêu cầu thanh toán tiền mặt.</div>
-                </c:if>
-                <div class="grid grid-2">
-                    <c:forEach var="p" items="${cashPayments}">
-                        <div class="card">
-                            <h3>
-                                Đơn #
-                                <c:out value="${p.orderId}" />
-                            </h3>
-                            <p class="muted">
-                                Bàn
-                                <c:out value="${p.tableNumber}" />
-                            </p>
-                            <div class="price">
-                                <fmt:formatNumber value="${p.amount}" type="number" maxFractionDigits="0" />
-                                ₫
-                            </div>
-                            <form method="post" action="${ctx}/waiter" style="margin-top:14px">
-                                <input type="hidden" name="action" value="confirmCash">
-                                <input type="hidden" name="id" value="${p.paymentId}">
-                                <button
-                                    class="btn btn-primary"
-                                    type="submit"
-                                    onclick="return confirm('Bạn đã nhận đủ tiền từ khách?');">
-                                    Xác nhận đã nhận tiền
-                                </button>
-                            </form>
-
-                        </div>
-                    </c:forEach>
-                </div>
-            </section>
-
             <%--=====================================================3. WALK-IN
             MERGE=====================================================--%>
 
