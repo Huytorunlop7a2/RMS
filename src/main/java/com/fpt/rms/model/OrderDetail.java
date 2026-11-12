@@ -2,6 +2,7 @@ package com.fpt.rms.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class OrderDetail {
     private long orderDetailId;
@@ -106,5 +107,14 @@ public class OrderDetail {
 
     public BigDecimal getLineTotal() {
         return unitPrice.multiply(BigDecimal.valueOf(quantity));
+    }
+
+    public String getFormattedCreatedAt() {
+        if (createdAt == null) {
+            return "";
+        }
+
+        return createdAt.format(
+                DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
     }
 }

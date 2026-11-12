@@ -1,7 +1,6 @@
 package com.fpt.rms.controller;
 
 import com.fpt.rms.dao.OrderDAO;
-import com.fpt.rms.dao.PaymentDAO;
 import com.fpt.rms.dao.ReservationDAO;
 import com.fpt.rms.dao.TableDAO;
 import com.fpt.rms.dao.WalkInGroupDAO;
@@ -21,7 +20,6 @@ import java.io.IOException;
 @WebServlet("/waiter")
 public class WaiterServlet extends HttpServlet {
     private final OrderDAO orderDAO = new OrderDAO();
-    private final PaymentDAO paymentDAO = new PaymentDAO();
     private final ReservationDAO reservationDAO = new ReservationDAO();
     private final TableDAO tableDAO = new TableDAO();
     private final WalkInGroupDAO walkInGroupDAO = new WalkInGroupDAO();
@@ -30,7 +28,6 @@ public class WaiterServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         try {
             req.setAttribute("readyDetails", orderDAO.findReadyDetails());
-            req.setAttribute("cashPayments", paymentDAO.findPendingCash());
             req.setAttribute("tables", tableDAO.findAll());
             req.setAttribute("activeWalkInTableIds", walkInGroupDAO.findActiveGroupTableIds());
             req.setAttribute("activeWalkInGroupLabels", walkInGroupDAO.findActiveGroupLabels());
@@ -55,10 +52,6 @@ public class WaiterServlet extends HttpServlet {
                 long detailId = Long.parseLong(req.getParameter("id"));
                 orderDAO.markServed(detailId);
                 successMessage = "Đã xác nhận món được phục vụ";
-            } else if ("confirmCash".equals(action)) {
-                long paymentId = Long.parseLong(req.getParameter("id"));
-                paymentDAO.confirmCash(paymentId);
-                successMessage = "Đã xác nhận nhận đủ tiền mặt. " + "Đơn hàng đã đóng.";
             } else if ("createWalkInGroup".equals(action)) {
                 long groupId = walkInGroupDAO.createGroup(req.getParameterValues("tableIds"), staff.getStaffId());
                 successMessage = "Đã gộp bàn walk-in thành công. " + "Nhóm #" + groupId;

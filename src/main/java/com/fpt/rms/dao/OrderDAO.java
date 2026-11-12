@@ -3,6 +3,8 @@ package com.fpt.rms.dao;
 import com.fpt.rms.model.OrderDetail;
 import com.fpt.rms.model.RestaurantOrder;
 import com.fpt.rms.util.DBContext;
+import java.util.HashSet;
+import java.util.Set;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -197,9 +199,17 @@ public class OrderDAO {
                         }
                         detailId = pendingDetailId;
                     } else {
-                        String insert = "INSERT INTO order_details(" + "order_id," + "menu_item_id," + "quantity,"
-                                + "unit_price," + "note," + "status" + ") " + "OUTPUT INSERTED.order_detail_id "
-                                + "VALUES(" + "?,?,?,?,?,'PENDING'" + ")";
+                        String insert = "INSERT INTO order_details("
+                                + "order_id,"
+                                + "menu_item_id,"
+                                + "quantity,"
+                                + "unit_price,"
+                                + "note,"
+                                + "status,"
+                                + "created_at"
+                                + ") "
+                                + "OUTPUT INSERTED.order_detail_id "
+                                + "VALUES(?,?,?,?,?,'PENDING',SYSDATETIME())";
                         try (PreparedStatement ps = c.prepareStatement(insert)) {
                             ps.setLong(1, orderId);
                             ps.setLong(2, item.menuItemId());
@@ -389,6 +399,66 @@ public class OrderDAO {
                 return rs.getInt("active_count") > 0 && rs.getInt("waiting_count") == 0;
             }
         }
+    }
+
+    public Set<Long> findPayableOpenOrderTableIds() throws SQLException {
+
+        String sql = "WITH eligible_orders AS ( "
+                + "    SELECT o.order_id, o.table_id, o.reservation_id "
+                + "    FROM orders o "
+                + "    WHERE o.order_status='OPEN' "
+                + "    AND EXISTS ( "
+                + "        SELECT 1 FROM order_details d "
+                + "        WHERE d.order_id=o.order_id "
+                + "        AND d.status<>'CANCELLED' "
+                + "    ) "
+                + "    AND NOT EXISTS ( "
+                + "        SELECT 1 FROM order_details d "
+                + "        WHERE d.order_id=o.order_id "
+                + "        AND d.status NOT IN ('SERVED','CANCELLED') "
+                + "    ) "
+                + ") "
+                + "SELECT rt.table_id "
+                + "FROM eligible_orders eo "
+                + "JOIN reservation_tables rt "
+                + "ON rt.reservation_id=eo.reservation_id "
+                + "WHERE eo.reservation_id IS NOT NULL "
+
+                + "UNION "
+
+                + "SELECT wgt.table_id "
+                + "FROM eligible_orders eo "
+                + "JOIN walk_in_groups wg "
+                + "ON wg.anchor_table_id=eo.table_id "
+                + "AND wg.status='ACTIVE' "
+                + "JOIN walk_in_group_tables wgt "
+                + "ON wgt.walk_in_group_id=wg.walk_in_group_id "
+                + "AND wgt.active=1 "
+                + "WHERE eo.reservation_id IS NULL "
+
+                + "UNION "
+
+                + "SELECT eo.table_id "
+                + "FROM eligible_orders eo "
+                + "WHERE eo.reservation_id IS NULL "
+                + "AND NOT EXISTS ( "
+                + "    SELECT 1 FROM walk_in_groups wg "
+                + "    WHERE wg.anchor_table_id=eo.table_id "
+                + "    AND wg.status='ACTIVE' "
+                + ")";
+
+        Set<Long> tableIds = new HashSet<>();
+
+        try (Connection c = DBContext.getConnection();
+                PreparedStatement ps = c.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                tableIds.add(rs.getLong("table_id"));
+            }
+        }
+
+        return tableIds;
     }
 
     private ServiceContext resolveContext(Connection c, String token, boolean lock) throws SQLException {
