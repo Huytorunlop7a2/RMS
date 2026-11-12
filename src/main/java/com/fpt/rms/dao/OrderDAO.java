@@ -197,9 +197,17 @@ public class OrderDAO {
                         }
                         detailId = pendingDetailId;
                     } else {
-                        String insert = "INSERT INTO order_details(" + "order_id," + "menu_item_id," + "quantity,"
-                                + "unit_price," + "note," + "status" + ") " + "OUTPUT INSERTED.order_detail_id "
-                                + "VALUES(" + "?,?,?,?,?,'PENDING'" + ")";
+                        String insert = "INSERT INTO order_details("
+                                + "order_id,"
+                                + "menu_item_id,"
+                                + "quantity,"
+                                + "unit_price,"
+                                + "note,"
+                                + "status,"
+                                + "created_at"
+                                + ") "
+                                + "OUTPUT INSERTED.order_detail_id "
+                                + "VALUES(?,?,?,?,?,'PENDING',SYSDATETIME())";
                         try (PreparedStatement ps = c.prepareStatement(insert)) {
                             ps.setLong(1, orderId);
                             ps.setLong(2, item.menuItemId());
