@@ -161,11 +161,6 @@
 
                                         <h1>Danh sách đặt bàn</h1>
 
-                                        <p class="muted">
-                                            Theo dõi, tìm kiếm và quản lý các Reservation
-                                            của khách hàng.
-                                        </p>
-
                                     </div>
 
                                     <div>
@@ -197,12 +192,7 @@
                                 <section class="card section">
 
                                     <h2>Bộ lọc Reservation</h2>
-
-                                    <p class="muted">
-                                        Tìm kiếm theo mã đặt bàn, tên khách hàng,
-                                        số điện thoại, bàn, ngày đặt và trạng thái.
-                                    </p>
-
+                                    
                                     <form method="get" action="${ctx}/receptionist/reservations"
                                         id="reservationFilterForm">
 

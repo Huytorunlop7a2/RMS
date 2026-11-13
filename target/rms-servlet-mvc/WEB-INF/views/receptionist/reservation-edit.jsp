@@ -301,12 +301,6 @@
 
                 <h2>2. Chọn phương án bàn</h2>
 
-                <p class="muted">
-                    Hệ thống không tính những bàn đang được chính
-                    Reservation này giữ là bàn bận.
-                    Các Reservation khác vẫn được kiểm tra bình thường.
-                </p>
-
                 <c:if test="${not empty editSearchError}">
 
                     <div class="alert alert-danger">

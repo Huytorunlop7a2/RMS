@@ -27,10 +27,6 @@
                             <div class="page-head">
                                 <div>
                                     <h1>Quản lý khách Walk-in</h1>
-                                    <p class="muted">
-                                        Chọn các bàn trống để ghép thành nhóm phục vụ khách đến trực tiếp.
-                                        Theo dõi và trả bàn tại tab Trạng thái bàn.
-                                    </p>
                                 </div>
                             </div>
 
@@ -49,11 +45,6 @@
                             <section class="card section">
 
                                 <h2>Gộp bàn cho khách Walk-in</h2>
-
-                                <p class="muted">
-                                    Chọn ít nhất hai bàn đang trống để ghép thành
-                                    một nhóm bàn phục vụ khách.
-                                </p>
 
                                 <form method="post" action="${ctx}/receptionist/walk-ins"
                                     onsubmit="return validateWalkInGroup();">

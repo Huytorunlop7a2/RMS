@@ -21,10 +21,6 @@
                 <div class="page-head">
                     <div>
                         <h1>Trạng thái bàn</h1>
-                        <p class="muted">
-                            Theo dõi bàn đang sử dụng bởi khách Walk-in hoặc Reservation đã check-in.
-                            Có thể trả riêng từng bàn hoặc trả toàn bộ nhóm bàn.
-                        </p>
                     </div>
                 </div>
 
@@ -44,9 +40,6 @@
                     <div class="page-head">
                         <div>
                             <h2>Danh sách bàn</h2>
-                            <p class="muted">
-                                ID bàn là mã định danh trong hệ thống. Reservation chỉ chiếm bàn thực tế sau khi check-in.
-                            </p>
                         </div>
                     </div>
 

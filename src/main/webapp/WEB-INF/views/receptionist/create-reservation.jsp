@@ -34,10 +34,6 @@
 
                                     <h1>Tạo đặt bàn</h1>
 
-                                    <p class="muted">
-                                        Tìm kiếm bàn phù hợp và xác nhận đặt bàn cho khách hàng.
-                                    </p>
-
                                 </div>
 
                             </div>
@@ -57,11 +53,6 @@
                             <section class="card section">
 
                                 <h2>Thông tin tìm bàn</h2>
-
-                                <p class="muted">
-                                    Nhập ngày, giờ bắt đầu và số khách để hệ thống
-                                    tìm bàn đơn hoặc nhóm bàn phù hợp.
-                                </p>
 
                                 <form method="get" action="${ctx}/receptionist/create-reservation">
 
@@ -267,7 +258,7 @@
 
                                                     <button class="btn btn-primary" type="submit"
                                                         onclick="return confirm('Bạn xác nhận tạo Reservation này?');">
-                                                        Xác nhận đặt bàn
+                                                        Ghi nhận đặt bàn
                                                     </button>
 
                                                     <a href="${ctx}/receptionist/reservations" class="btn btn-outline">
