@@ -3,6 +3,8 @@ package com.fpt.rms.dao;
 import com.fpt.rms.model.InventoryItem;
 import com.fpt.rms.util.DBContext;
 
+import java.time.LocalDate;
+import java.sql.Timestamp;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -16,6 +18,183 @@ import java.util.List;
 import java.util.Map;
 
 public class InventoryDAO {
+
+    private static final String TX_FROM = """
+            FROM dbo.inventory_transactions t
+            JOIN dbo.inventory_items i
+                ON i.inventory_item_id = t.inventory_item_id
+            """;
+
+    private String transactionWhere(
+            LocalDate fromDate,
+            LocalDate toDate,
+            String type,
+            String keyword,
+            List<Object> params) {
+
+        StringBuilder where = new StringBuilder(" WHERE 1=1 ");
+
+        if (fromDate != null) {
+            where.append(" AND t.created_at >= ? ");
+            params.add(java.sql.Date.valueOf(fromDate));
+        }
+
+        if (toDate != null) {
+            where.append(" AND t.created_at < ? ");
+            params.add(java.sql.Date.valueOf(toDate.plusDays(1)));
+        }
+
+        if (type != null && !type.isBlank()) {
+            where.append(" AND t.transaction_type = ? ");
+            params.add(type);
+        }
+
+        if (keyword != null && !keyword.isBlank()) {
+            where.append(" AND i.name LIKE ? ");
+            params.add("%" + keyword.trim() + "%");
+        }
+
+        return where.toString();
+    }
+
+    private void bindTransactionParams(
+            PreparedStatement ps,
+            List<Object> params) throws SQLException {
+
+        for (int j = 0; j < params.size(); j++) {
+            ps.setObject(j + 1, params.get(j));
+        }
+    }
+
+    private Map<String, Object> mapTransaction(ResultSet rs)
+            throws SQLException {
+
+        Map<String, Object> tx = new LinkedHashMap<>();
+
+        tx.put("transactionId", rs.getLong("transaction_id"));
+        tx.put("createdAt", rs.getTimestamp("created_at"));
+        tx.put("inventoryName", rs.getString("inventory_name"));
+        tx.put("unit", rs.getString("unit"));
+        tx.put("transactionType", rs.getString("transaction_type"));
+        tx.put("quantityChange", rs.getBigDecimal("quantity_change"));
+        tx.put("unitCost", rs.getBigDecimal("unit_cost"));
+        tx.put("referenceOrderId", rs.getObject("reference_order_id"));
+        tx.put("description", rs.getString("description"));
+
+        return tx;
+    }
+
+    // 1. Dem tong giao dich theo bo loc
+    public long countTransactions(
+            LocalDate fromDate,
+            LocalDate toDate,
+            String type,
+            String keyword) throws SQLException {
+
+        List<Object> params = new ArrayList<>();
+
+        String sql = "SELECT COUNT_BIG(*) "
+                + TX_FROM
+                + transactionWhere(
+                        fromDate, toDate, type, keyword, params);
+
+        try (Connection conn = DBContext.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            bindTransactionParams(ps, params);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getLong(1) : 0;
+            }
+        }
+    }
+
+    // 2. Lay giao dich co loc va phan trang
+    public List<Map<String, Object>> findTransactions(
+            LocalDate fromDate,
+            LocalDate toDate,
+            String type,
+            String keyword,
+            int page,
+            int pageSize) throws SQLException {
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
+
+        String sql = """
+                SELECT
+                    t.transaction_id,
+                    t.created_at,
+                    i.name AS inventory_name,
+                    i.unit,
+                    t.transaction_type,
+                    t.quantity_change,
+                    t.unit_cost,
+                    t.reference_order_id,
+                    t.description
+                """
+                + TX_FROM
+                + transactionWhere(fromDate, toDate, type, keyword, params)
+                + """
+                        ORDER BY t.created_at DESC, t.transaction_id DESC
+                        OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+                        """;
+
+        long offset = ((long) page - 1) * pageSize;
+
+        try (Connection conn = DBContext.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            bindTransactionParams(ps, params);
+
+            int nextIndex = params.size() + 1;
+            ps.setLong(nextIndex, offset);
+            ps.setInt(nextIndex + 1, pageSize);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    result.add(mapTransaction(rs));
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // 3. Tim chi tiet mot giao dich theo ID
+    public Map<String, Object> findTransactionById(long id)
+            throws SQLException {
+
+        String sql = """
+                SELECT
+                    t.transaction_id,
+                    t.created_at,
+                    i.name AS inventory_name,
+                    i.unit,
+                    t.transaction_type,
+                    t.quantity_change,
+                    t.unit_cost,
+                    t.reference_order_id,
+                    t.description
+                """
+                + TX_FROM
+                + " WHERE t.transaction_id = ?";
+
+        try (Connection conn = DBContext.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setLong(1, id);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapTransaction(rs);
+                }
+            }
+        }
+
+        return null;
+    }
+
     public List<InventoryItem> findAll() throws SQLException {
         List<InventoryItem> list = new ArrayList<>();
         String sql = "SELECT " + "inventory_item_id, " + "name, " + "unit, " + "quantity, " + "reserved_quantity, "
